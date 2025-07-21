@@ -29,16 +29,10 @@ const LoanDetails = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    console.log('LoanDetails: useEffect triggered');
-    console.log('ID from params:', id);
-    console.log('Available loans:', loans);
-    console.log('Loans count:', loans.length);
-    
     // Dar tiempo para que los préstamos se carguen
     const timeoutId = setTimeout(() => {
       // Convertir ID a número si es necesario para la comparación
       const foundLoan = loans.find(l => l.id === id || l.id === parseInt(id) || l.id.toString() === id);
-      console.log('Found loan:', foundLoan);
       
       if (foundLoan) {
         setLoan(foundLoan);
@@ -203,7 +197,7 @@ const LoanDetails = () => {
           <div className="text-right">
             <p className="text-sm text-gray-600">Monto del Préstamo</p>
             <p className="text-2xl font-bold text-primary-600">
-              {formatCurrency(loan.amount)}
+              {formatCurrency(loan.principal || loan.amount)}
             </p>
           </div>
         </div>
@@ -222,7 +216,7 @@ const LoanDetails = () => {
                   <DollarSign className="h-5 w-5 text-primary-600 mr-3" />
                   <div>
                     <p className="text-sm text-gray-600">Monto Principal</p>
-                    <p className="font-semibold text-gray-900">{formatCurrency(loan.amount)}</p>
+                    <p className="font-semibold text-gray-900">{formatCurrency(loan.principal || loan.amount)}</p>
                   </div>
                 </div>
                 
@@ -230,7 +224,7 @@ const LoanDetails = () => {
                   <Percent className="h-5 w-5 text-green-600 mr-3" />
                   <div>
                     <p className="text-sm text-gray-600">Tasa de Interés</p>
-                    <p className="font-semibold text-gray-900">{loan.interestRate}% anual</p>
+                    <p className="font-semibold text-gray-900">{loan.annualRate || loan.interestRate}% anual</p>
                   </div>
                 </div>
               </div>
@@ -240,7 +234,7 @@ const LoanDetails = () => {
                   <Clock className="h-5 w-5 text-orange-600 mr-3" />
                   <div>
                     <p className="text-sm text-gray-600">Plazo</p>
-                    <p className="font-semibold text-gray-900">{loan.termMonths} meses</p>
+                    <p className="font-semibold text-gray-900">{loan.months || loan.termMonths} meses</p>
                   </div>
                 </div>
                 
@@ -299,7 +293,7 @@ const LoanDetails = () => {
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span>Pagos realizados</span>
-                  <span>0 / {loan.termMonths}</span>
+                  <span>0 / {loan.months || loan.termMonths}</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div className="bg-blue-500 h-2 rounded-full" style={{ width: '0%' }}></div>
@@ -358,18 +352,18 @@ const LoanDetails = () => {
           <AmortizationTable 
             amortization={loan.schedule || loan.amortization || (() => {
               const recalculated = calculateAmortization({
-                principal: loan.amount,
-                annualRate: loan.interestRate,
-                months: loan.termMonths,
+                principal: loan.principal || loan.amount,
+                annualRate: loan.annualRate || loan.interestRate,
+                months: loan.months || loan.termMonths,
                 startDate: loan.startDate,
                 name: loan.name
               });
               return recalculated.schedule;
             })()}
             loanData={{
-              amount: loan.amount,
-              rate: loan.interestRate,
-              term: loan.termMonths
+              amount: loan.principal || loan.amount,
+              rate: loan.annualRate || loan.interestRate,
+              term: loan.months || loan.termMonths
             }}
           />
         </div>
