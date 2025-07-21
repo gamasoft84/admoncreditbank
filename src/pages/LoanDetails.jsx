@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLoan } from '../context/LoanContext';
-import { formatCurrency, formatDate, calculateAmortization, calculateLoanProgress } from '../utils/financial';
+import { formatCurrency, formatDate, calculateAmortization, calculateLoanProgress, calculateNextPaymentDate } from '../utils/financial';
 import AmortizationTable from '../components/AmortizationTable';
 import {
   ArrowLeft,
@@ -121,6 +121,9 @@ const LoanDetails = () => {
     progressPercentage: 0,
     capitalProgressPercentage: 0
   };
+
+  // Calcular fecha del próximo pago
+  const nextPaymentDate = loan ? calculateNextPaymentDate(loan) : null;
 
   const getStatusBadge = (status) => {
     const badges = {
@@ -362,17 +365,22 @@ const LoanDetails = () => {
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">🗓️ Próximo Pago</h3>
             <div className="text-center">
-              {loanProgress.paymentsCompleted < (loan.months || loan.termMonths) ? (
+              {nextPaymentDate ? (
                 <>
                   <p className="text-2xl font-bold text-blue-600 mb-2">
                     {formatCurrency(loan.monthlyPaymentWithTax || loan.monthlyPayment)}
                   </p>
                   <p className="text-sm text-gray-600 mb-1">
-                    Pago #{loanProgress.paymentsCompleted + 1}
+                    Pago #{loanProgress.paymentsCompleted + 1} de {loan.months || loan.termMonths}
                   </p>
                   <p className="text-sm text-gray-600">
-                    Fecha estimada: {formatDate(new Date(Date.now() + ((loanProgress.paymentsCompleted + 1) * 30 * 24 * 60 * 60 * 1000)))}
+                    {formatDate(nextPaymentDate)}
                   </p>
+                  {loanProgress.paymentsCompleted === 0 && (
+                    <p className="text-xs text-blue-500 mt-2">
+                      * Primer pago después del mes 0 (comisiones)
+                    </p>
+                  )}
                 </>
               ) : (
                 <>
@@ -381,7 +389,7 @@ const LoanDetails = () => {
                     <p className="text-lg font-bold">¡Préstamo Completado!</p>
                   </div>
                   <p className="text-sm text-gray-600">
-                    Todos los pagos han sido realizados
+                    Todos los {loan.months || loan.termMonths} pagos han sido realizados
                   </p>
                 </>
               )}

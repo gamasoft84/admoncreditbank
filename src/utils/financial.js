@@ -238,6 +238,39 @@ export const calculateLoanProgress = (loan) => {
 };
 
 /**
+ * Calcula la fecha del próximo pago de un préstamo
+ * @param {Object} loan - Objeto del préstamo
+ * @returns {string|null} Fecha del próximo pago o null si ya terminó
+ */
+export const calculateNextPaymentDate = (loan) => {
+  const today = new Date();
+  const startDate = new Date(loan.startDate || loan.createdAt);
+  
+  const monthsElapsed = calculateMonthsElapsed(startDate, today);
+  const totalMonths = loan.months || loan.termMonths;
+  
+  // Si el préstamo aún no ha comenzado
+  if (monthsElapsed < 0) {
+    // El primer pago será en el mes 1 (mes después de la fecha de inicio)
+    const firstPaymentDate = new Date(startDate);
+    firstPaymentDate.setMonth(firstPaymentDate.getMonth() + 1);
+    return firstPaymentDate.toISOString().split('T')[0];
+  }
+  
+  // Si ya terminó el préstamo
+  if (monthsElapsed >= totalMonths) {
+    return null;
+  }
+  
+  // Calcular la fecha del próximo pago
+  const nextPaymentMonth = monthsElapsed + 1;
+  const nextPaymentDate = new Date(startDate);
+  nextPaymentDate.setMonth(nextPaymentDate.getMonth() + nextPaymentMonth);
+  
+  return nextPaymentDate.toISOString().split('T')[0];
+};
+
+/**
  * Formatea un número como moneda mexicana
  * @param {number} amount - Cantidad a formatear
  * @returns {string} Cantidad formateada
