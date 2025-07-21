@@ -12,9 +12,18 @@ const AmortizationTable = ({ amortization, loanData }) => {
   const totals = amortization.reduce((acc, payment) => ({
     totalPayment: acc.totalPayment + payment.payment,
     totalInterest: acc.totalInterest + payment.interest,
-    totalVAT: acc.totalVAT + payment.vatOnInterest,
-    totalPrincipal: acc.totalPrincipal + payment.principal
-  }), { totalPayment: 0, totalInterest: 0, totalVAT: 0, totalPrincipal: 0 });
+    totalVAT: acc.totalVAT + (payment.vatOnInterest || payment.interestTax || 0),
+    totalPrincipal: acc.totalPrincipal + payment.principal,
+    totalCommission: acc.totalCommission + (payment.commission || 0),
+    totalCommissionTax: acc.totalCommissionTax + (payment.commissionTax || 0)
+  }), { 
+    totalPayment: 0, 
+    totalInterest: 0, 
+    totalVAT: 0, 
+    totalPrincipal: 0,
+    totalCommission: 0,
+    totalCommissionTax: 0
+  });
 
   return (
     <div className="space-y-6">
@@ -111,7 +120,7 @@ const AmortizationTable = ({ amortization, loanData }) => {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {formatDate(payment.date)}
+                    {formatDate(payment.date || payment.paymentDate)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900">
                     {formatCurrency(payment.payment)}
@@ -123,7 +132,7 @@ const AmortizationTable = ({ amortization, loanData }) => {
                     {formatCurrency(payment.interest)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-red-600">
-                    {formatCurrency(payment.vatOnInterest)}
+                    {formatCurrency(payment.vatOnInterest || payment.interestTax || 0)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-purple-600">
                     {formatCurrency(payment.balance)}

@@ -289,7 +289,16 @@ const LoanDetails = () => {
       {showAmortizationTable && (
         <div className="mb-8">
           <AmortizationTable 
-            amortization={loan.amortization}
+            amortization={loan.schedule || loan.amortization || (() => {
+              const recalculated = calculateAmortization({
+                principal: loan.amount,
+                annualRate: loan.interestRate,
+                months: loan.termMonths,
+                startDate: loan.startDate,
+                name: loan.name
+              });
+              return recalculated.schedule;
+            })()}
             loanData={{
               amount: loan.amount,
               rate: loan.interestRate,

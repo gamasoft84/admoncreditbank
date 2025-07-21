@@ -382,7 +382,7 @@ const NewLoan = () => {
       {showResults && showAmortizationTable && calculation && (
         <div className="mt-8">
           <AmortizationTable 
-            amortization={calculation.amortization}
+            amortization={calculation.schedule}
             loanData={{
               amount: calculation.principal,
               rate: formData.interestRate,
