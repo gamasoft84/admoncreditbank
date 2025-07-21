@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useLoan } from '../context/LoanContext';
-import { formatCurrency, formatDate, calculateCurrentBalance } from '../utils/financial';
+import { formatCurrency, formatDate, calculateCurrentBalance, calculateLoanProgress } from '../utils/financial';
 import {
   TrendingUp,
   DollarSign,
@@ -20,11 +20,18 @@ const Dashboard = () => {
   const updatedStats = React.useMemo(() => {
     if (!loans || loans.length === 0) return stats;
 
-    const totalAmount = loans.reduce((sum, loan) => sum + loan.principal, 0);
+    const totalAmount = loans.reduce((sum, loan) => sum + (loan.principal || loan.amount), 0);
     const totalToPay = loans.reduce((sum, loan) => sum + loan.totalPayment, 0);
-    const totalPending = loans.reduce((sum, loan) => sum + calculateCurrentBalance(loan), 0);
+    
+    // Usar calculateLoanProgress para obtener saldos más precisos
+    const loanProgresses = loans.map(loan => calculateLoanProgress(loan));
+    const totalPending = loanProgresses.reduce((sum, progress) => sum + progress.remainingBalance, 0);
     const totalPaid = totalToPay - totalPending;
-    const averageProgress = totalToPay > 0 ? (totalPaid / totalToPay) * 100 : 0;
+    
+    // Calcular progreso promedio basado en tiempo transcurrido
+    const averageProgress = loanProgresses.length > 0 
+      ? loanProgresses.reduce((sum, progress) => sum + progress.progressPercentage, 0) / loanProgresses.length
+      : 0;
 
     return {
       totalLoans: loans.length,
@@ -41,12 +48,16 @@ const Dashboard = () => {
     return loans
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 5)
-      .map(loan => ({
-        ...loan,
-        currentBalance: calculateCurrentBalance(loan),
-        progress: loan.totalPayment > 0 ? 
-          ((loan.totalPayment - calculateCurrentBalance(loan)) / loan.totalPayment) * 100 : 0
-      }));
+      .map(loan => {
+        const loanProgress = calculateLoanProgress(loan);
+        return {
+          ...loan,
+          currentBalance: loanProgress.remainingBalance,
+          progress: loanProgress.progressPercentage,
+          paymentsCompleted: loanProgress.paymentsCompleted,
+          totalPayments: loan.months || loan.termMonths
+        };
+      });
   }, [loans]);
 
   // Estadísticas de la tarjetas
@@ -236,7 +247,7 @@ const Dashboard = () => {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
                       <p className="text-secondary-600">Monto Original</p>
-                      <p className="font-medium">{formatCurrency(loan.principal)}</p>
+                      <p className="font-medium">{formatCurrency(loan.principal || loan.amount)}</p>
                     </div>
                     <div>
                       <p className="text-secondary-600">Saldo Pendiente</p>
@@ -248,7 +259,12 @@ const Dashboard = () => {
                     </div>
                     <div>
                       <p className="text-secondary-600">Progreso</p>
-                      <p className="font-medium">{loan.progress.toFixed(1)}%</p>
+                      <p className="font-medium">
+                        {loan.paymentsCompleted}/{loan.totalPayments} 
+                        <span className="text-xs text-secondary-500 ml-1">
+                          ({loan.progress.toFixed(1)}%)
+                        </span>
+                      </p>
                     </div>
                     <div>
                       <p className="text-secondary-600">Fecha Inicio</p>

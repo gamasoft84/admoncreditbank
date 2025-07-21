@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useLoan } from '../context/LoanContext';
-import { formatCurrency, formatDate, calculateCurrentBalance } from '../utils/financial';
+import { formatCurrency, formatDate, calculateCurrentBalance, calculateLoanProgress } from '../utils/financial';
 import {
   Search,
   Filter,
@@ -23,9 +23,8 @@ const LoanList = () => {
   // Procesar préstamos con datos calculados
   const processedLoans = useMemo(() => {
     return loans.map(loan => {
-      const currentBalance = calculateCurrentBalance(loan);
-      const totalPaid = loan.totalPayment - currentBalance;
-      const progress = loan.totalPayment > 0 ? (totalPaid / loan.totalPayment) * 100 : 0;
+      const loanProgress = calculateLoanProgress(loan);
+      const progress = loanProgress.progressPercentage;
       
       let status = 'pending';
       if (progress === 100) status = 'completed';
@@ -33,9 +32,11 @@ const LoanList = () => {
 
       return {
         ...loan,
-        currentBalance,
-        totalPaid,
+        currentBalance: loanProgress.remainingBalance,
+        totalPaid: loanProgress.capitalPaid,
         progress,
+        paymentsCompleted: loanProgress.paymentsCompleted,
+        totalPayments: loan.months || loan.termMonths,
         status
       };
     });
@@ -265,7 +266,10 @@ const LoanList = () => {
                       <div>
                         <p className="text-xs text-secondary-600">Progreso</p>
                         <p className="font-semibold text-secondary-900">
-                          {loan.progress.toFixed(1)}%
+                          {loan.paymentsCompleted}/{loan.totalPayments}
+                        </p>
+                        <p className="text-xs text-secondary-500">
+                          ({loan.progress.toFixed(1)}%)
                         </p>
                       </div>
                     </div>
@@ -282,7 +286,7 @@ const LoanList = () => {
                       </div>
                       <div className="flex justify-between text-xs text-secondary-600 mt-1">
                         <span>Inicio: {formatDate(loan.startDate)}</span>
-                        <span>{loan.progress.toFixed(1)}% completado</span>
+                        <span>Pagos: {loan.paymentsCompleted}/{loan.totalPayments} ({loan.progress.toFixed(1)}%)</span>
                       </div>
                     </div>
                   </div>
