@@ -8,7 +8,12 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "version:patch": "npm version patch --no-git-tag-version",
+    "version:minor": "npm version minor --no-git-tag-version",
+    "version:major": "npm version major --no-git-tag-version",
+    "commit:version": "git add . && git commit -m \"🔖 Bump version to $(node -p \"require('./package.json').version\")\"",
+    "release": "npm run build && npm run lint"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.4",
