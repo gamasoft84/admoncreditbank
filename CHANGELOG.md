@@ -5,6 +5,29 @@ Todos los cambios importantes en este proyecto serán documentados en este archi
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto sigue [Semantic Versioning](https://semver.org/lang/es/).
 
+## [1.1.0] - 2025-07-20
+
+### Agregado
+- 📊 **Tabla de Amortización Completa**: Nuevo componente `AmortizationTable` con desglose detallado
+- 🔍 **Página de Detalles de Préstamo**: Vista completa con información financiera y progreso
+- 📈 **Visualización de Progreso**: Barras de progreso para capital, intereses e IVA
+- 🎯 **Navegación Mejorada**: Enlaces directos a detalles desde lista de préstamos
+- 💱 **Cálculos Mexicanos**: IVA sobre intereses y comisiones mostrado por separado
+- 📱 **Diseño Responsive**: Tabla adaptativa para dispositivos móviles
+
+### Mejorado
+- ✨ **Calculadora de Préstamos**: Botón para mostrar/ocultar tabla de amortización
+- 🎨 **Interfaz de Usuario**: Colores diferenciados para tipos de pagos
+- 📋 **Resumen Financiero**: Totales destacados con indicadores visuales
+- 🔗 **Flujo de Usuario**: Navegación intuitiva entre páginas
+
+### Componentes Nuevos
+- `AmortizationTable.jsx`: Tabla completa de amortización
+- `LoanDetails.jsx`: Vista detallada de préstamos individuales
+
+### Rutas Nuevas
+- `/prestamo/:id`: Detalles completos del préstamo
+
 ## [1.0.0] - 2025-07-20
 
 ### Agregado
