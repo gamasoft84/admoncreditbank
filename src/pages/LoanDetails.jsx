@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLoan } from '../context/LoanContext';
-import { formatCurrency, formatDate, calculateAmortization } from '../utils/financial';
+import { formatCurrency, formatDate, calculateAmortization, calculateLoanProgress } from '../utils/financial';
 import AmortizationTable from '../components/AmortizationTable';
 import {
   ArrowLeft,
@@ -110,6 +110,16 @@ const LoanDetails = () => {
   const handleDelete = () => {
     deleteLoan(loan.id);
     navigate('/prestamos');
+  };
+
+  // Calcular progreso del préstamo
+  const loanProgress = loan ? calculateLoanProgress(loan) : {
+    monthsElapsed: 0,
+    paymentsCompleted: 0,
+    capitalPaid: 0,
+    remainingBalance: 0,
+    progressPercentage: 0,
+    capitalProgressPercentage: 0
   };
 
   const getStatusBadge = (status) => {
@@ -256,14 +266,21 @@ const LoanDetails = () => {
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                 <p className="text-sm text-blue-600 font-medium">Cuota Mensual</p>
                 <p className="text-xl font-bold text-blue-900">
-                  {formatCurrency(loan.monthlyPaymentWithTax)}
+                  {formatCurrency(loan.monthlyPaymentWithTax || loan.monthlyPayment)}
                 </p>
               </div>
               
               <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                <p className="text-sm text-yellow-600 font-medium">Pago Inicial (Mes 0)</p>
+                <p className="text-sm text-yellow-600 font-medium">Saldo Actual</p>
                 <p className="text-xl font-bold text-yellow-900">
-                  {formatCurrency(loan.initialPayment)}
+                  {formatCurrency(loanProgress.remainingBalance)}
+                </p>
+              </div>
+              
+              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                <p className="text-sm text-green-600 font-medium">Capital Pagado</p>
+                <p className="text-xl font-bold text-green-900">
+                  {formatCurrency(loanProgress.capitalPaid)}
                 </p>
               </div>
               
@@ -273,12 +290,19 @@ const LoanDetails = () => {
                   {formatCurrency(loan.totalPayment)}
                 </p>
               </div>
-              
-              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                <p className="text-sm text-green-600 font-medium">Total Intereses</p>
-                <p className="text-xl font-bold text-green-900">
-                  {formatCurrency(loan.totalInterest)}
-                </p>
+            </div>
+            
+            {/* Información adicional */}
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-600">Pago Inicial (Mes 0):</span>
+                  <span className="ml-2 font-semibold">{formatCurrency(loan.initialPayment)}</span>
+                </div>
+                <div>
+                  <span className="text-gray-600">Total Intereses:</span>
+                  <span className="ml-2 font-semibold">{formatCurrency(loan.totalInterest)}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -293,20 +317,42 @@ const LoanDetails = () => {
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span>Pagos realizados</span>
-                  <span>0 / {loan.months || loan.termMonths}</span>
+                  <span>{loanProgress.paymentsCompleted} / {loan.months || loan.termMonths}</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-blue-500 h-2 rounded-full" style={{ width: '0%' }}></div>
+                  <div 
+                    className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
+                    style={{ width: `${loanProgress.progressPercentage}%` }}
+                  ></div>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {loanProgress.progressPercentage.toFixed(1)}% completado
                 </div>
               </div>
               
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span>Capital pagado</span>
-                  <span>{formatCurrency(0)}</span>
+                  <span>{formatCurrency(loanProgress.capitalPaid)}</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-green-500 h-2 rounded-full" style={{ width: '0%' }}></div>
+                  <div 
+                    className="bg-green-500 h-2 rounded-full transition-all duration-300" 
+                    style={{ width: `${loanProgress.capitalProgressPercentage}%` }}
+                  ></div>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {loanProgress.capitalProgressPercentage.toFixed(1)}% del capital
+                </div>
+              </div>
+
+              {/* Saldo pendiente */}
+              <div className="pt-2 border-t border-gray-200">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Saldo pendiente:</span>
+                  <span className="font-semibold text-red-600">
+                    {formatCurrency(loanProgress.remainingBalance)}
+                  </span>
                 </div>
               </div>
             </div>
@@ -316,12 +362,29 @@ const LoanDetails = () => {
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">🗓️ Próximo Pago</h3>
             <div className="text-center">
-              <p className="text-2xl font-bold text-blue-600 mb-2">
-                {formatCurrency(loan.monthlyPaymentWithTax)}
-              </p>
-              <p className="text-sm text-gray-600">
-                Fecha estimada: {formatDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))}
-              </p>
+              {loanProgress.paymentsCompleted < (loan.months || loan.termMonths) ? (
+                <>
+                  <p className="text-2xl font-bold text-blue-600 mb-2">
+                    {formatCurrency(loan.monthlyPaymentWithTax || loan.monthlyPayment)}
+                  </p>
+                  <p className="text-sm text-gray-600 mb-1">
+                    Pago #{loanProgress.paymentsCompleted + 1}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Fecha estimada: {formatDate(new Date(Date.now() + ((loanProgress.paymentsCompleted + 1) * 30 * 24 * 60 * 60 * 1000)))}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="text-green-600 mb-2">
+                    <CheckCircle className="h-8 w-8 mx-auto mb-2" />
+                    <p className="text-lg font-bold">¡Préstamo Completado!</p>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Todos los pagos han sido realizados
+                  </p>
+                </>
+              )}
             </div>
           </div>
 

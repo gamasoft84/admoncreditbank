@@ -170,6 +170,74 @@ export const calculateMonthsElapsed = (startDate, currentDate) => {
 };
 
 /**
+ * Calcula el progreso actual del préstamo
+ * @param {Object} loan - Objeto del préstamo
+ * @returns {Object} Progreso del préstamo
+ */
+export const calculateLoanProgress = (loan) => {
+  const today = new Date();
+  const startDate = new Date(loan.startDate || loan.createdAt);
+  
+  const monthsElapsed = Math.max(0, calculateMonthsElapsed(startDate, today));
+  const totalMonths = loan.months || loan.termMonths;
+  const principal = loan.principal || loan.amount;
+  
+  // Si no ha comenzado el préstamo
+  if (monthsElapsed <= 0) {
+    return {
+      monthsElapsed: 0,
+      paymentsCompleted: 0,
+      capitalPaid: 0,
+      remainingBalance: principal,
+      progressPercentage: 0,
+      capitalProgressPercentage: 0
+    };
+  }
+  
+  // Si el préstamo ya terminó
+  if (monthsElapsed >= totalMonths) {
+    return {
+      monthsElapsed: totalMonths,
+      paymentsCompleted: totalMonths,
+      capitalPaid: principal,
+      remainingBalance: 0,
+      progressPercentage: 100,
+      capitalProgressPercentage: 100
+    };
+  }
+  
+  // Calcular progreso actual
+  const monthlyRate = ((loan.annualRate || loan.interestRate) / 100) / 12;
+  const monthlyPayment = loan.monthlyPayment || calculateMonthlyPayment(principal, monthlyRate, totalMonths);
+  
+  let balance = principal;
+  let totalCapitalPaid = 0;
+  
+  // Simular pagos hasta el mes actual
+  for (let month = 1; month <= monthsElapsed; month++) {
+    const interestPayment = balance * monthlyRate;
+    const principalPayment = monthlyPayment - interestPayment;
+    
+    balance = Math.max(0, balance - principalPayment);
+    totalCapitalPaid += principalPayment;
+    
+    if (balance === 0) break;
+  }
+  
+  const progressPercentage = (monthsElapsed / totalMonths) * 100;
+  const capitalProgressPercentage = (totalCapitalPaid / principal) * 100;
+  
+  return {
+    monthsElapsed,
+    paymentsCompleted: monthsElapsed,
+    capitalPaid: totalCapitalPaid,
+    remainingBalance: balance,
+    progressPercentage: Math.min(progressPercentage, 100),
+    capitalProgressPercentage: Math.min(capitalProgressPercentage, 100)
+  };
+};
+
+/**
  * Formatea un número como moneda mexicana
  * @param {number} amount - Cantidad a formatear
  * @returns {string} Cantidad formateada
