@@ -7,6 +7,7 @@ import {
   formatCurrency, 
   formatDate 
 } from '../utils/financial';
+import AmortizationTable from '../components/AmortizationTable';
 import {
   Calculator,
   Save,
@@ -14,7 +15,8 @@ import {
   Calendar,
   DollarSign,
   Percent,
-  Clock
+  Clock,
+  Table
 } from 'lucide-react';
 
 const NewLoan = () => {
@@ -35,6 +37,7 @@ const NewLoan = () => {
   const [errors, setErrors] = useState({});
   const [isCalculating, setIsCalculating] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [showAmortizationTable, setShowAmortizationTable] = useState(false);
 
   // Manejar cambios en el formulario
   const handleInputChange = (e) => {
@@ -352,7 +355,7 @@ const NewLoan = () => {
               </div>
 
               {/* Botón guardar */}
-              <div className="pt-4">
+              <div className="pt-4 space-y-3">
                 <button
                   onClick={handleSave}
                   className="btn btn-success w-full"
@@ -360,11 +363,34 @@ const NewLoan = () => {
                   <Save className="h-4 w-4 mr-2" />
                   Guardar Préstamo
                 </button>
+                
+                {/* Botón mostrar tabla de amortización */}
+                <button
+                  onClick={() => setShowAmortizationTable(!showAmortizationTable)}
+                  className="btn btn-primary w-full"
+                >
+                  <Table className="h-4 w-4 mr-2" />
+                  {showAmortizationTable ? 'Ocultar' : 'Ver'} Tabla de Amortización
+                </button>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Tabla de amortización */}
+      {showResults && showAmortizationTable && calculation && (
+        <div className="mt-8">
+          <AmortizationTable 
+            amortization={calculation.amortization}
+            loanData={{
+              amount: calculation.principal,
+              rate: formData.interestRate,
+              term: formData.termMonths
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 };
