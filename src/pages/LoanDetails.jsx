@@ -25,15 +25,82 @@ const LoanDetails = () => {
   const [loan, setLoan] = useState(null);
   const [showAmortizationTable, setShowAmortizationTable] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const foundLoan = loans.find(l => l.id === id);
-    if (foundLoan) {
-      setLoan(foundLoan);
-    } else {
-      navigate('/prestamos');
-    }
-  }, [id, loans, navigate]);
+    console.log('LoanDetails: useEffect triggered');
+    console.log('ID from params:', id);
+    console.log('Available loans:', loans);
+    console.log('Loans count:', loans.length);
+    
+    // Dar tiempo para que los préstamos se carguen
+    const timeoutId = setTimeout(() => {
+      // Convertir ID a número si es necesario para la comparación
+      const foundLoan = loans.find(l => l.id === id || l.id === parseInt(id) || l.id.toString() === id);
+      console.log('Found loan:', foundLoan);
+      
+      if (foundLoan) {
+        setLoan(foundLoan);
+        setError(null);
+      } else if (loans.length > 0) {
+        // Solo mostrar error si ya se cargaron los préstamos y no se encontró
+        setError(`Préstamo con ID "${id}" no encontrado`);
+      }
+      setLoading(false);
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [id, loans]);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando detalles del préstamo...</p>
+          <p className="mt-2 text-sm text-gray-400">ID: {id}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <AlertTriangle className="h-12 w-12 text-red-600 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-red-800 mb-2">Préstamo no encontrado</h2>
+            <p className="text-red-600 mb-4">{error}</p>
+            <div className="space-y-2">
+              <button
+                onClick={() => navigate('/prestamos')}
+                className="btn btn-primary mr-3"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Volver a Mis Préstamos
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                className="btn btn-secondary"
+              >
+                Recargar Página
+              </button>
+            </div>
+            <div className="mt-4 text-sm text-gray-500">
+              <p><strong>Debug info:</strong></p>
+              <p>ID buscado: {id}</p>
+              <p>Préstamos disponibles: {loans.length}</p>
+              {loans.length > 0 && (
+                <p>IDs disponibles: {loans.map(l => l.id).join(', ')}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!loan) {
     return (
