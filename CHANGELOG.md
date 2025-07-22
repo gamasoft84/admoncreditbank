@@ -5,6 +5,69 @@ Todos los cambios importantes en este proyecto serán documentados en este archi
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto sigue [Semantic Versioning](https://semver.org/lang/es/).
 
+## [1.2.0] - 2025-07-22
+
+### 🆕 Agregado
+- **Sistema completo de migración localStorage → Base de datos**
+  - API REST con Prisma ORM y SQLite
+  - Endpoint `/api/migrate` para migración segura
+  - Scripts de migración ejecutables desde navegador
+  - Panel de migración en la interfaz de usuario
+
+- **Base de datos robusta**
+  - Schema Prisma con tablas `loans` y `payment_schedule`
+  - Soporte para BigInt IDs (timestamps)
+  - Relaciones entre préstamos y cronogramas de pago
+  - Migraciones automáticas de base de datos
+
+- **Servicios backend**
+  - `loanService.js` con operaciones CRUD completas
+  - Funciones especializadas para migración (`migrateLoan`)
+  - Manejo inteligente de duplicados
+  - Serialización automática de BigInt para JSON
+
+- **Scripts y utilidades**
+  - `migrate.js` - Script de migración desde consola del navegador
+  - Funciones de backup y limpieza de localStorage
+  - Logs detallados del proceso de migración
+  - Utilidades de verificación de API y datos
+
+### 🔧 Mejorado
+- **Compatibilidad de datos**
+  - Mapeo automático entre campos de localStorage y base de datos
+  - Validación de datos antes de insertar
+  - Manejo de campos opcionales y valores por defecto
+
+- **Experiencia del usuario**
+  - Panel de migración integrado en la UI
+  - Feedback en tiempo real del proceso
+  - Opciones de backup antes de migrar
+
+### 🐛 Corregido
+- **Error "Unique constraint failed on the fields: (`id`)"**
+  - Implementación de detección inteligente de duplicados
+  - Función `migrateLoan` que verifica existencia antes de crear
+  - Respuestas diferenciadas para creación vs. omisión
+
+- **Error "Cannot read properties of undefined (reading 'map')"**
+  - Manejo seguro de schedule undefined con `(schedule || [])`
+  - Validación de estructura de datos antes del procesamiento
+
+- **Problemas de serialización BigInt**
+  - Función `serializeBigInt` para conversión automática
+  - Manejo consistente de IDs BigInt en toda la API
+
+### 🏗️ Infraestructura
+- **Configuración de desarrollo**
+  - Scripts npm para ejecutar frontend y backend simultáneamente
+  - Configuración de Prisma para SQLite
+  - Variables de entorno para configuración
+
+- **Control de versiones**
+  - `.gitignore` mejorado para archivos de base de datos
+  - Exclusión de archivos temporales y de desarrollo
+  - Documentación de migración en archivos MD
+
 ## [1.1.0] - 2025-07-20
 
 ### Agregado
