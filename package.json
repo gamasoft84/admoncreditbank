@@ -1,8 +1,8 @@
 {
   "name": "prestamo-bnk",
   "private": true,
-  "version": "1.2.0",
-  "description": "Sistema moderno de administración de créditos y préstamos para el mercado mexicano con migración a base de datos",
+  "version": "1.7.0",
+  "description": "Sistema moderno de administración de créditos y préstamos para el mercado mexicano con gestión de clientes",
   "type": "module",
   "scripts": {
     "dev": "vite",
