@@ -104,7 +104,8 @@ export const createLoan = async (loanData) => {
       if (existingLoan) {
         console.log('⚠️ Préstamo ya existe, actualizando...', loanId);
         // Si ya existe, actualizarlo en lugar de crear uno nuevo
-        return await updateLoan(loanId, loanData);
+        const updateResult = await updateLoan(loanId, loanData);
+        return updateResult;
       }
     }
     
@@ -208,13 +209,11 @@ export const updateLoan = async (id, loanData) => {
 // Eliminar un préstamo
 export const deleteLoan = async (id) => {
   try {
-    // Convertir ID a BigInt si es necesario
-    const loanId = typeof id === 'string' ? BigInt(id) : BigInt(id);
-    
+    // Convertir ID a Number para Prisma (Int)
+    const loanId = typeof id === 'string' ? Number(id) : Number(id);
     await prisma.loan.delete({
       where: { id: loanId }
     });
-    
     return { success: true, message: 'Préstamo eliminado correctamente' };
   } catch (error) {
     console.error('Error eliminando préstamo:', error);

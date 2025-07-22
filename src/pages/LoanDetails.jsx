@@ -27,6 +27,7 @@ const LoanDetails = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [deleteMessage, setDeleteMessage] = useState('');
 
   useEffect(() => {
     // Dar tiempo para que los préstamos se carguen
@@ -107,9 +108,16 @@ const LoanDetails = () => {
     );
   }
 
-  const handleDelete = () => {
-    deleteLoan(loan.id);
-    navigate('/prestamos');
+  const handleDelete = async () => {
+    const result = await deleteLoan(loan.id);
+    if (result && result.success) {
+      setDeleteMessage('¡Préstamo eliminado correctamente!');
+      setTimeout(() => {
+        navigate('/prestamos');
+      }, 1200);
+    } else {
+      setDeleteMessage('Error al eliminar el préstamo. Intenta de nuevo.');
+    }
   };
 
   // Calcular progreso del préstamo
@@ -448,22 +456,27 @@ const LoanDetails = () => {
               <AlertTriangle className="h-6 w-6 text-red-600 mr-3" />
               <h3 className="text-lg font-semibold text-gray-900">Confirmar Eliminación</h3>
             </div>
-            
             <p className="text-gray-600 mb-6">
               ¿Estás seguro de que deseas eliminar el préstamo <strong>"{loan.name}"</strong>? 
               Esta acción no se puede deshacer.
             </p>
-            
+            {deleteMessage && (
+              <div className={`mb-4 px-4 py-2 rounded text-sm ${deleteMessage.includes('correctamente') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                {deleteMessage}
+              </div>
+            )}
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
                 className="btn btn-secondary"
+                disabled={!!deleteMessage}
               >
                 Cancelar
               </button>
               <button
                 onClick={handleDelete}
                 className="btn btn-danger"
+                disabled={!!deleteMessage}
               >
                 Eliminar
               </button>

@@ -326,7 +326,7 @@ export const validateLoanInputs = ({ amount, interestRate, termMonths }) => {
     errors.amount = 'El monto debe ser mayor a 0';
   }
   
-  if (!interestRate || interestRate < 0 || interestRate > 100) {
+  if (interestRate === undefined || interestRate === null || interestRate < 0 || interestRate > 100) {
     errors.interestRate = 'La tasa de interés debe estar entre 0% y 100%';
   }
   

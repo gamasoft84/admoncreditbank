@@ -198,11 +198,16 @@ export const LoanProvider = ({ children }) => {
     addLoan: async (loanData) => {
       try {
         dispatch({ type: LOAN_ACTIONS.SET_LOADING, payload: true });
-        
         if (state.useAPI) {
           // Usar API
-          const newLoan = await loanAPI.create(loanData);
-          dispatch({ type: LOAN_ACTIONS.ADD_LOAN, payload: newLoan });
+          const apiResult = await loanAPI.create(loanData);
+          if (apiResult && apiResult.success) {
+            dispatch({ type: LOAN_ACTIONS.ADD_LOAN, payload: apiResult.data });
+            dispatch({ type: LOAN_ACTIONS.SET_LOADING, payload: false });
+            return { success: true };
+          } else {
+            throw new Error(apiResult.error || 'Error al guardar el préstamo');
+          }
         } else {
           // Usar localStorage
           const existingLoan = state.loans.find(loan => loan.name === loanData.name);
@@ -210,10 +215,9 @@ export const LoanProvider = ({ children }) => {
             throw new Error('Ya existe un préstamo con ese nombre');
           }
           dispatch({ type: LOAN_ACTIONS.ADD_LOAN, payload: loanData });
+          dispatch({ type: LOAN_ACTIONS.SET_LOADING, payload: false });
+          return { success: true };
         }
-        
-        dispatch({ type: LOAN_ACTIONS.SET_LOADING, payload: false });
-        return { success: true };
       } catch (error) {
         console.error('Error adding loan:', error);
         dispatch({ type: LOAN_ACTIONS.SET_ERROR, payload: error.message });
@@ -344,52 +348,7 @@ export const LoanProvider = ({ children }) => {
       });
     },
 
-    // Migrar datos de localStorage a API
-    migrateToAPI: async () => {
-      try {
-        if (state.useAPI) {
-          return { success: false, message: 'Ya estás usando la API' };
-        }
-
-        const localStorageLoans = JSON.parse(localStorage.getItem('prestamoBnk_loans') || '[]');
-        
-        if (localStorageLoans.length === 0) {
-          return { success: false, message: 'No hay datos en localStorage para migrar' };
-        }
-
-        // Intentar conectar con API
-        const apiAvailable = await checkAPIConnection();
-        if (!apiAvailable) {
-          return { success: false, message: 'API no disponible' };
-        }
-
-        dispatch({ type: LOAN_ACTIONS.SET_LOADING, payload: true });
-        
-        // Migrar cada préstamo
-        let migratedCount = 0;
-        for (const loan of localStorageLoans) {
-          try {
-            await loanAPI.create(loan);
-            migratedCount++;
-          } catch (error) {
-            console.error('Error migrando préstamo:', loan.name, error);
-          }
-        }
-
-        // Cambiar a modo API y recargar datos
-        dispatch({ type: LOAN_ACTIONS.SET_API_MODE, payload: true });
-        await loadLoansFromAPI();
-        
-        return { 
-          success: true, 
-          message: `${migratedCount}/${localStorageLoans.length} préstamos migrados exitosamente` 
-        };
-      } catch (error) {
-        console.error('Error durante migración:', error);
-        dispatch({ type: LOAN_ACTIONS.SET_ERROR, payload: error.message });
-        return { success: false, message: error.message };
-      }
-    }
+    // ...existing code...
   };
 
   const value = {

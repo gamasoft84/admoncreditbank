@@ -2,13 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLoan } from '../context/LoanContext';
 import { formatCurrency, validateLoanInputs, calculateAmortization } from '../utils/financial';
+import ClientSelector from '../components/ClientSelector';
+import ClientModal from '../components/ClientModal';
 import {
   ArrowLeft,
   Save,
   Calculator,
   AlertTriangle,
   Eye,
-  EyeOff
+  EyeOff,
+  User
 } from 'lucide-react';
 
 const EditLoan = () => {
@@ -24,11 +27,19 @@ const EditLoan = () => {
     termMonths: '',
     startDate: ''
   });
+  
+  // Estado del cliente
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [showClientSelector, setShowClientSelector] = useState(false);
+  const [showClientModal, setShowClientModal] = useState(false);
+  
   const [errors, setErrors] = useState({});
   const [isCalculating, setIsCalculating] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [calculation, setCalculation] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
+  // Estado para mensaje de guardado
+  const [saveMessage, setSaveMessage] = useState('');
 
   // Cargar datos del préstamo
   useEffect(() => {
@@ -43,10 +54,31 @@ const EditLoan = () => {
         termMonths: (foundLoan.months || foundLoan.termMonths || '').toString(),
         startDate: foundLoan.startDate || ''
       });
+      
+      // Cargar información del cliente si existe
+      if (foundLoan.client) {
+        setSelectedClient(foundLoan.client);
+      } else if (foundLoan.clientId) {
+        // Si solo tenemos el ID del cliente, intentar cargarlo desde la API
+        loadClientById(foundLoan.clientId);
+      }
     } else {
       navigate('/prestamos');
     }
   }, [id, loans, navigate]);
+
+  // Función para cargar cliente por ID
+  const loadClientById = async (clientId) => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/clients/${clientId}`);
+      if (response.ok) {
+        const client = await response.json();
+        setSelectedClient(client);
+      }
+    } catch (error) {
+      console.error('Error cargando cliente:', error);
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -63,6 +95,32 @@ const EditLoan = () => {
         [name]: ''
       }));
     }
+  };
+
+  // Manejar selección de cliente
+  const handleClientSelect = (client) => {
+    setSelectedClient(client);
+    setShowClientSelector(false);
+    setHasChanges(true);
+  };
+
+  // Manejar creación de cliente
+  const handleCreateClient = () => {
+    setShowClientSelector(false);
+    setShowClientModal(true);
+  };
+
+  // Manejar cliente creado
+  const handleClientCreated = (newClient) => {
+    setSelectedClient(newClient);
+    setShowClientModal(false);
+    setHasChanges(true);
+  };
+
+  // Remover cliente seleccionado
+  const handleRemoveClient = () => {
+    setSelectedClient(null);
+    setHasChanges(true);
   };
 
   const handleCalculate = () => {
@@ -118,16 +176,20 @@ const EditLoan = () => {
 
     const updatedLoan = {
       ...calculation,
-      id: loan.id, // Mantener el ID original
+      id: Number(loan.id), // Forzar a Int
       createdAt: loan.createdAt, // Mantener fecha de creación
-      status: loan.status || 'active' // Mantener estado
+      status: loan.status || 'active', // Mantener estado
+      clientId: selectedClient?.id || null // Agregar clientId
     };
 
     const result = updateLoan(updatedLoan);
     if (result.success) {
-      navigate(`/prestamo/${loan.id}`);
+      setSaveMessage('¡Préstamo actualizado exitosamente!');
+      setTimeout(() => {
+        navigate(`/prestamo/${loan.id}`);
+      }, 1200);
     } else {
-      setErrors({ general: result.message });
+      setSaveMessage('Error al actualizar el préstamo. Intenta de nuevo.');
     }
   };
 
@@ -173,7 +235,11 @@ const EditLoan = () => {
               {showPreview ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
               {showPreview ? 'Ocultar' : 'Vista'} Previa
             </button>
-            
+            {saveMessage && (
+              <div className={`mb-2 px-4 py-2 rounded text-sm ${saveMessage.includes('exitosamente') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                {saveMessage}
+              </div>
+            )}
             <button
               onClick={handleSave}
               className="btn btn-primary"
@@ -230,6 +296,56 @@ const EditLoan = () => {
                 />
                 {errors.name && (
                   <p className="text-red-600 text-sm mt-1">{errors.name}</p>
+                )}
+              </div>
+
+              {/* Selección de Cliente */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <User className="h-4 w-4 inline mr-1" />
+                  Cliente Asociado
+                </label>
+                {selectedClient ? (
+                  <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center">
+                      <User className="h-5 w-5 text-blue-600 mr-3" />
+                      <div>
+                        <p className="font-medium text-gray-900">{selectedClient.name}</p>
+                        {selectedClient.email && (
+                          <p className="text-sm text-gray-600">{selectedClient.email}</p>
+                        )}
+                        {selectedClient.phone && (
+                          <p className="text-sm text-gray-600">{selectedClient.phone}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowClientSelector(true)}
+                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      >
+                        Cambiar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRemoveClient}
+                        className="text-red-600 hover:text-red-800 text-sm font-medium"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowClientSelector(true)}
+                    className="w-full p-4 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors"
+                  >
+                    <User className="h-6 w-6 mx-auto mb-2" />
+                    <span className="block font-medium">Seleccionar Cliente</span>
+                    <span className="text-sm">Opcional - Asociar este préstamo con un cliente</span>
+                  </button>
                 )}
               </div>
 
@@ -419,6 +535,25 @@ const EditLoan = () => {
           </div>
         </div>
       </div>
+
+      {/* Modales */}
+      {showClientSelector && (
+        <ClientSelector
+          isOpen={showClientSelector}
+          onClose={() => setShowClientSelector(false)}
+          onSelectClient={handleClientSelect}
+          onCreateClient={handleCreateClient}
+          selectedClientId={selectedClient?.id}
+        />
+      )}
+
+      {showClientModal && (
+        <ClientModal
+          isOpen={showClientModal}
+          onClose={() => setShowClientModal(false)}
+          onClientCreated={handleClientCreated}
+        />
+      )}
     </div>
   );
 };

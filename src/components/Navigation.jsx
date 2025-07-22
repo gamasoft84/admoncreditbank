@@ -35,8 +35,7 @@ const Navigation = () => {
       description: 'Gestionar préstamos'
     },
     {
-      name: 'Migración',
-      href: '/migracion',
+      // ...entrada migración eliminada...
       icon: Database,
       description: 'Migrar datos'
     },

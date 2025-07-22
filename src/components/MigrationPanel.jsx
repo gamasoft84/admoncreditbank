@@ -1,25 +1,4 @@
-import React, { useState } from 'react';
-import { Upload, Download, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
-
-const MigrationPanel = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [migrationResult, setMigrationResult] = useState(null);
-
-  const handleMigration = async () => {
-    setIsLoading(true);
-    setMigrationResult(null);
-
-    try {
-      // Obtener datos de localStorage
-      const localStorageLoans = localStorage.getItem('loans');
-      if (!localStorageLoans) {
-        setMigrationResult({
-          success: false,
-          message: 'No se encontraron préstamos en localStorage',
-          details: { migrated: 0, skipped: 0, errors: 0 }
-        });
-        return;
-      }
+// Archivo eliminado: Panel de Migración
 
       const loans = JSON.parse(localStorageLoans);
       const results = {

@@ -1,5 +1,5 @@
 import React from 'react';
-import MigrationPanel from '../components/MigrationPanel';
+// importación eliminada
 
 const MigrationPage = () => {
   return (
@@ -13,7 +13,7 @@ const MigrationPage = () => {
         </p>
       </div>
       
-      <MigrationPanel />
+      {/* Panel de migración eliminado */}
     </div>
   );
 };

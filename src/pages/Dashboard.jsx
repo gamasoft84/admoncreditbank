@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useLoan } from '../context/LoanContext';
 import { formatCurrency, formatDate, calculateCurrentBalance, calculateLoanProgress } from '../utils/financial';
-import MigrationPanel from '../components/MigrationPanel';
+// importación eliminada
 import {
   TrendingUp,
   DollarSign,
@@ -253,7 +253,7 @@ const Dashboard = () => {
       )}
 
       {/* Panel de Migración Mejorado */}
-      <MigrationPanel />
+      {/* Panel de migración eliminado */}
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">

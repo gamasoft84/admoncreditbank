@@ -45,6 +45,9 @@ const NewLoan = () => {
   const [showResults, setShowResults] = useState(false);
   const [showAmortizationTable, setShowAmortizationTable] = useState(false);
 
+  // Estado para mensaje de guardado
+  const [saveMessage, setSaveMessage] = useState('');
+
   // Manejar cambios en el formulario
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -108,7 +111,7 @@ const NewLoan = () => {
   };
 
   // Guardar préstamo
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!calculation) return;
 
     // Agregar clientId al cálculo si hay un cliente seleccionado
@@ -117,9 +120,15 @@ const NewLoan = () => {
       clientId: selectedClient?.id || null
     };
 
-    const result = addLoan(loanData);
+    const result = await addLoan(loanData);
+    console.log('Resultado de guardar préstamo:', result);
     if (result.success) {
-      navigate('/prestamos');
+      setSaveMessage('¡Préstamo guardado exitosamente!');
+      setTimeout(() => {
+        navigate('/prestamos');
+      }, 1200);
+    } else {
+      setSaveMessage('Error al guardar el préstamo. Intenta de nuevo.');
     }
   };
 
@@ -392,6 +401,11 @@ const NewLoan = () => {
 
               {/* Botón guardar */}
               <div className="pt-4 space-y-3">
+                {saveMessage && (
+                  <div className={`mb-2 px-4 py-2 rounded text-sm ${saveMessage.includes('exitosamente') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    {saveMessage}
+                  </div>
+                )}
                 <button
                   onClick={handleSave}
                   className="btn btn-success w-full"
