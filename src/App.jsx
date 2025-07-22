@@ -7,6 +7,7 @@ import NewLoan from './pages/NewLoan';
 import LoanList from './pages/LoanList';
 import LoanDetails from './pages/LoanDetails';
 import EditLoan from './pages/EditLoan';
+import MigrationPage from './pages/MigrationPage';
 // import Settings from './pages/Settings';
 
 function App() {
@@ -20,6 +21,7 @@ function App() {
             <Route path="/prestamos" element={<LoanList />} />
             <Route path="/prestamo/:id" element={<LoanDetails />} />
             <Route path="/prestamo/:id/editar" element={<EditLoan />} />
+            <Route path="/migracion" element={<MigrationPage />} />
             {/* <Route path="/configuracion" element={<Settings />} /> */}
             {/* Ruta 404 */}
             <Route path="*" element={

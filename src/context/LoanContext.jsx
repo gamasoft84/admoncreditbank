@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { calculateCurrentBalance, generateLoanStats } from '../utils/financial';
+import { loanAPI, checkAPIConnection } from '../services/apiService';
 
 // Crear el contexto
 const LoanContext = createContext();
@@ -10,6 +11,7 @@ const initialState = {
   currentLoan: null,
   loading: false,
   error: null,
+  useAPI: false, // Flag para determinar si usar API o localStorage
   stats: {
     totalLoans: 0,
     totalAmount: 0,
@@ -30,7 +32,8 @@ export const LOAN_ACTIONS = {
   SET_LOADING: 'SET_LOADING',
   SET_ERROR: 'SET_ERROR',
   CLEAR_ERROR: 'CLEAR_ERROR',
-  UPDATE_STATS: 'UPDATE_STATS'
+  UPDATE_STATS: 'UPDATE_STATS',
+  SET_API_MODE: 'SET_API_MODE'
 };
 
 // Reducer para manejar el estado
@@ -95,6 +98,12 @@ const loanReducer = (state, action) => {
         error: null
       };
 
+    case LOAN_ACTIONS.SET_API_MODE:
+      return {
+        ...state,
+        useAPI: action.payload
+      };
+
     case LOAN_ACTIONS.UPDATE_STATS:
       return {
         ...state,
@@ -110,22 +119,61 @@ const loanReducer = (state, action) => {
 export const LoanProvider = ({ children }) => {
   const [state, dispatch] = useReducer(loanReducer, initialState);
 
-  // Cargar préstamos del localStorage al iniciar
+  // Inicializar conexión y cargar datos
   useEffect(() => {
-    loadLoansFromStorage();
+    initializeDataSource();
   }, []);
 
-  // Guardar préstamos en localStorage cuando cambien
+  // Guardar préstamos en localStorage cuando cambien (solo si no usa API)
   useEffect(() => {
-    if (state.loans.length > 0) {
+    if (state.loans.length > 0 && !state.useAPI) {
       saveLoansToStorage(state.loans);
     }
-  }, [state.loans]);
+  }, [state.loans, state.useAPI]);
+
+  // Inicializar fuente de datos (API o localStorage)
+  const initializeDataSource = async () => {
+    try {
+      dispatch({ type: LOAN_ACTIONS.SET_LOADING, payload: true });
+      
+      // Verificar si la API está disponible
+      const apiAvailable = await checkAPIConnection();
+      
+      if (apiAvailable) {
+        console.log('✅ API disponible, usando base de datos');
+        dispatch({ type: LOAN_ACTIONS.SET_API_MODE, payload: true });
+        await loadLoansFromAPI();
+      } else {
+        console.log('⚠️ API no disponible, usando localStorage');
+        dispatch({ type: LOAN_ACTIONS.SET_API_MODE, payload: false });
+        loadLoansFromStorage();
+      }
+    } catch (error) {
+      console.error('Error inicializando fuente de datos:', error);
+      dispatch({ type: LOAN_ACTIONS.SET_ERROR, payload: 'Error al inicializar datos' });
+      // Fallback a localStorage
+      dispatch({ type: LOAN_ACTIONS.SET_API_MODE, payload: false });
+      loadLoansFromStorage();
+    }
+  };
+
+  // Cargar préstamos desde API
+  const loadLoansFromAPI = async () => {
+    try {
+      const loans = await loanAPI.getAll();
+      dispatch({ type: LOAN_ACTIONS.LOAD_LOANS, payload: loans });
+    } catch (error) {
+      console.error('Error cargando desde API:', error);
+      dispatch({ type: LOAN_ACTIONS.SET_ERROR, payload: 'Error al cargar préstamos desde la base de datos' });
+      // Fallback a localStorage
+      dispatch({ type: LOAN_ACTIONS.SET_API_MODE, payload: false });
+      loadLoansFromStorage();
+    }
+  };
 
   // Funciones para manejar localStorage
   const loadLoansFromStorage = () => {
     try {
-      dispatch({ type: LOAN_ACTIONS.SET_LOADING, payload: true });
       const saved = localStorage.getItem('prestamoBnk_loans');
       const loans = saved ? JSON.parse(saved) : [];
       dispatch({ type: LOAN_ACTIONS.LOAD_LOANS, payload: loans });
@@ -147,45 +195,77 @@ export const LoanProvider = ({ children }) => {
   // Acciones del contexto
   const actions = {
     // Agregar nuevo préstamo
-    addLoan: (loanData) => {
+    addLoan: async (loanData) => {
       try {
-        const existingLoan = state.loans.find(loan => loan.name === loanData.name);
-        if (existingLoan) {
-          throw new Error('Ya existe un préstamo con este nombre');
+        dispatch({ type: LOAN_ACTIONS.SET_LOADING, payload: true });
+        
+        if (state.useAPI) {
+          // Usar API
+          const newLoan = await loanAPI.create(loanData);
+          dispatch({ type: LOAN_ACTIONS.ADD_LOAN, payload: newLoan });
+        } else {
+          // Usar localStorage
+          const existingLoan = state.loans.find(loan => loan.name === loanData.name);
+          if (existingLoan) {
+            throw new Error('Ya existe un préstamo con ese nombre');
+          }
+          dispatch({ type: LOAN_ACTIONS.ADD_LOAN, payload: loanData });
         }
-        dispatch({ type: LOAN_ACTIONS.ADD_LOAN, payload: loanData });
-        return { success: true, message: 'Préstamo agregado exitosamente' };
+        
+        dispatch({ type: LOAN_ACTIONS.SET_LOADING, payload: false });
+        return { success: true };
       } catch (error) {
+        console.error('Error adding loan:', error);
         dispatch({ type: LOAN_ACTIONS.SET_ERROR, payload: error.message });
-        return { success: false, message: error.message };
+        return { success: false, error: error.message };
       }
     },
 
     // Actualizar préstamo existente
-    updateLoan: (loanData) => {
+    updateLoan: async (loanData) => {
       try {
-        const existingLoan = state.loans.find(loan => loan.id === loanData.id);
-        if (!existingLoan) {
-          throw new Error('Préstamo no encontrado');
+        dispatch({ type: LOAN_ACTIONS.SET_LOADING, payload: true });
+        
+        if (state.useAPI) {
+          // Usar API
+          const updatedLoan = await loanAPI.update(loanData.id, loanData);
+          dispatch({ type: LOAN_ACTIONS.UPDATE_LOAN, payload: updatedLoan });
+        } else {
+          // Usar localStorage
+          const existingLoan = state.loans.find(loan => loan.id === loanData.id);
+          if (!existingLoan) {
+            throw new Error('Préstamo no encontrado');
+          }
+          dispatch({ type: LOAN_ACTIONS.UPDATE_LOAN, payload: loanData });
         }
-        dispatch({ type: LOAN_ACTIONS.UPDATE_LOAN, payload: loanData });
+        
+        dispatch({ type: LOAN_ACTIONS.SET_LOADING, payload: false });
         return { success: true, message: 'Préstamo actualizado exitosamente' };
       } catch (error) {
+        console.error('Error updating loan:', error);
         dispatch({ type: LOAN_ACTIONS.SET_ERROR, payload: error.message });
         return { success: false, message: error.message };
       }
     },
 
     // Eliminar préstamo
-    deleteLoan: (loanId) => {
+    deleteLoan: async (loanId) => {
       try {
-        const existingLoan = state.loans.find(loan => loan.id === loanId);
-        if (!existingLoan) {
-          throw new Error('Préstamo no encontrado');
+        dispatch({ type: LOAN_ACTIONS.SET_LOADING, payload: true });
+        
+        if (state.useAPI) {
+          // Usar API
+          await loanAPI.delete(loanId);
+          dispatch({ type: LOAN_ACTIONS.DELETE_LOAN, payload: loanId });
+        } else {
+          // Usar localStorage
+          dispatch({ type: LOAN_ACTIONS.DELETE_LOAN, payload: loanId });
         }
-        dispatch({ type: LOAN_ACTIONS.DELETE_LOAN, payload: loanId });
+        
+        dispatch({ type: LOAN_ACTIONS.SET_LOADING, payload: false });
         return { success: true, message: 'Préstamo eliminado exitosamente' };
       } catch (error) {
+        console.error('Error deleting loan:', error);
         dispatch({ type: LOAN_ACTIONS.SET_ERROR, payload: error.message });
         return { success: false, message: error.message };
       }
@@ -193,7 +273,7 @@ export const LoanProvider = ({ children }) => {
 
     // Obtener préstamo por ID
     getLoanById: (loanId) => {
-      return state.loans.find(loan => loan.id === loanId) || null;
+      return state.loans.find(loan => loan.id === loanId);
     },
 
     // Establecer préstamo actual
@@ -203,11 +283,9 @@ export const LoanProvider = ({ children }) => {
 
     // Obtener estadísticas actualizadas
     getUpdatedStats: () => {
-      const loansWithCurrentBalance = state.loans.map(loan => ({
-        ...loan,
-        currentBalance: calculateCurrentBalance(loan)
-      }));
-      return generateLoanStats(loansWithCurrentBalance);
+      const stats = generateLoanStats(state.loans);
+      dispatch({ type: LOAN_ACTIONS.UPDATE_STATS, payload: stats });
+      return stats;
     },
 
     // Limpiar error
@@ -215,15 +293,13 @@ export const LoanProvider = ({ children }) => {
       dispatch({ type: LOAN_ACTIONS.CLEAR_ERROR });
     },
 
-    // Limpiar todos los préstamos
+    // Limpiar todos los préstamos (solo para testing)
     clearAllLoans: () => {
-      try {
-        localStorage.removeItem('prestamoBnk_loans');
+      if (confirm('¿Estás seguro de que quieres eliminar todos los préstamos?')) {
         dispatch({ type: LOAN_ACTIONS.LOAD_LOANS, payload: [] });
-        return { success: true, message: 'Todos los préstamos han sido eliminados' };
-      } catch (error) {
-        dispatch({ type: LOAN_ACTIONS.SET_ERROR, payload: 'Error al limpiar los préstamos' });
-        return { success: false, message: 'Error al limpiar los préstamos' };
+        if (!state.useAPI) {
+          localStorage.removeItem('prestamoBnk_loans');
+        }
       }
     },
 
@@ -233,7 +309,7 @@ export const LoanProvider = ({ children }) => {
         const dataStr = JSON.stringify(state.loans, null, 2);
         const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
         
-        const exportFileDefaultName = `prestamos_backup_${new Date().toISOString().split('T')[0]}.json`;
+        const exportFileDefaultName = `prestamos_${new Date().toISOString().split('T')[0]}.json`;
         
         const linkElement = document.createElement('a');
         linkElement.setAttribute('href', dataUri);
@@ -242,32 +318,76 @@ export const LoanProvider = ({ children }) => {
         
         return { success: true, message: 'Préstamos exportados exitosamente' };
       } catch (error) {
-        dispatch({ type: LOAN_ACTIONS.SET_ERROR, payload: 'Error al exportar los préstamos' });
+        console.error('Error exporting loans:', error);
         return { success: false, message: 'Error al exportar los préstamos' };
       }
     },
 
     // Importar préstamos
     importLoans: (file) => {
-      try {
+      return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = (e) => {
           try {
             const importedLoans = JSON.parse(e.target.result);
             if (Array.isArray(importedLoans)) {
               dispatch({ type: LOAN_ACTIONS.LOAD_LOANS, payload: importedLoans });
-              return { success: true, message: 'Préstamos importados exitosamente' };
+              resolve({ success: true, message: `${importedLoans.length} préstamos importados exitosamente` });
             } else {
-              throw new Error('Formato de archivo inválido');
+              resolve({ success: false, message: 'Formato de archivo inválido' });
             }
-          } catch (parseError) {
-            dispatch({ type: LOAN_ACTIONS.SET_ERROR, payload: 'Error al procesar el archivo' });
+          } catch (error) {
+            resolve({ success: false, message: 'Error al leer el archivo' });
           }
         };
         reader.readAsText(file);
+      });
+    },
+
+    // Migrar datos de localStorage a API
+    migrateToAPI: async () => {
+      try {
+        if (state.useAPI) {
+          return { success: false, message: 'Ya estás usando la API' };
+        }
+
+        const localStorageLoans = JSON.parse(localStorage.getItem('prestamoBnk_loans') || '[]');
+        
+        if (localStorageLoans.length === 0) {
+          return { success: false, message: 'No hay datos en localStorage para migrar' };
+        }
+
+        // Intentar conectar con API
+        const apiAvailable = await checkAPIConnection();
+        if (!apiAvailable) {
+          return { success: false, message: 'API no disponible' };
+        }
+
+        dispatch({ type: LOAN_ACTIONS.SET_LOADING, payload: true });
+        
+        // Migrar cada préstamo
+        let migratedCount = 0;
+        for (const loan of localStorageLoans) {
+          try {
+            await loanAPI.create(loan);
+            migratedCount++;
+          } catch (error) {
+            console.error('Error migrando préstamo:', loan.name, error);
+          }
+        }
+
+        // Cambiar a modo API y recargar datos
+        dispatch({ type: LOAN_ACTIONS.SET_API_MODE, payload: true });
+        await loadLoansFromAPI();
+        
+        return { 
+          success: true, 
+          message: `${migratedCount}/${localStorageLoans.length} préstamos migrados exitosamente` 
+        };
       } catch (error) {
-        dispatch({ type: LOAN_ACTIONS.SET_ERROR, payload: 'Error al importar los préstamos' });
-        return { success: false, message: 'Error al importar los préstamos' };
+        console.error('Error durante migración:', error);
+        dispatch({ type: LOAN_ACTIONS.SET_ERROR, payload: error.message });
+        return { success: false, message: error.message };
       }
     }
   };
@@ -284,7 +404,7 @@ export const LoanProvider = ({ children }) => {
   );
 };
 
-// Hook personalizado para usar el contexto
+// Hook para usar el contexto
 export const useLoan = () => {
   const context = useContext(LoanContext);
   if (!context) {
@@ -292,3 +412,5 @@ export const useLoan = () => {
   }
   return context;
 };
+
+export default LoanContext;

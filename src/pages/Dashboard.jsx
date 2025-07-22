@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useLoan } from '../context/LoanContext';
 import { formatCurrency, formatDate, calculateCurrentBalance, calculateLoanProgress } from '../utils/financial';
+import MigrationPanel from '../components/MigrationPanel';
 import {
   TrendingUp,
   DollarSign,
@@ -10,11 +11,29 @@ import {
   PlusCircle,
   ArrowRight,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Database,
+  Upload
 } from 'lucide-react';
 
 const Dashboard = () => {
-  const { loans, stats } = useLoan();
+  const { loans, stats, useAPI } = useLoan();
+  
+  // Verificar si hay datos en localStorage para migrar
+  const [hasLocalStorageData, setHasLocalStorageData] = React.useState(false);
+  
+  React.useEffect(() => {
+    // Solo verificar si no estamos usando API
+    if (!useAPI) {
+      try {
+        const localData = localStorage.getItem('prestamoBnk_loans');
+        const localLoans = localData ? JSON.parse(localData) : [];
+        setHasLocalStorageData(localLoans.length > 0);
+      } catch (error) {
+        setHasLocalStorageData(false);
+      }
+    }
+  }, [useAPI]);
 
   // Calcular estadísticas actualizadas
   const updatedStats = React.useMemo(() => {
@@ -26,7 +45,44 @@ const Dashboard = () => {
     // Usar calculateLoanProgress para obtener saldos más precisos
     const loanProgresses = loans.map(loan => calculateLoanProgress(loan));
     const totalPending = loanProgresses.reduce((sum, progress) => sum + progress.remainingBalance, 0);
-    const totalPaid = totalToPay - totalPending;
+    
+    // Calcular el total realmente pagado basado en tiempo transcurrido
+    const totalPaid = loans.reduce((sum, loan) => {
+      const progress = calculateLoanProgress(loan);
+      // Total pagado = solo el capital pagado hasta la fecha
+      return sum + progress.capitalPaid;
+    }, 0);
+    
+    // Calcular total de comisiones pagadas (siempre se pagan al inicio)
+    const totalCommissionsPaid = loans.reduce((sum, loan) => {
+      return sum + (loan.initialPayment || 0);
+    }, 0);
+    
+    // Calcular total de intereses + IVA pagados hasta el momento
+    const totalInterestWithIVAPaid = loans.reduce((sum, loan) => {
+      const progress = calculateLoanProgress(loan);
+      const monthlyRate = ((loan.annualRate || loan.interestRate) / 100) / 12;
+      const principal = loan.principal || loan.amount;
+      
+      let totalInterestPaid = 0;
+      let totalIVAPaid = 0;
+      let currentBalance = principal;
+      
+      // Calcular intereses e IVA pagados hasta el mes actual
+      for (let month = 1; month <= progress.paymentsCompleted; month++) {
+        const interestPayment = currentBalance * monthlyRate;
+        const ivaPayment = interestPayment * 0.16; // 16% IVA
+        const principalPayment = (loan.monthlyPayment || 0) - interestPayment;
+        
+        totalInterestPaid += interestPayment;
+        totalIVAPaid += ivaPayment;
+        currentBalance = Math.max(0, currentBalance - principalPayment);
+        
+        if (currentBalance === 0) break;
+      }
+      
+      return sum + totalInterestPaid + totalIVAPaid;
+    }, 0);
     
     // Calcular progreso promedio basado en tiempo transcurrido
     const averageProgress = loanProgresses.length > 0 
@@ -39,6 +95,8 @@ const Dashboard = () => {
       totalToPay,
       totalPaid,
       totalPending,
+      totalCommissionsPaid,
+      totalInterestWithIVAPaid,
       averageProgress
     };
   }, [loans, stats]);
@@ -77,7 +135,7 @@ const Dashboard = () => {
       format: 'currency'
     },
     {
-      title: 'Total Pagado',
+      title: 'Capital Pagado Total',
       value: updatedStats.totalPaid,
       icon: CheckCircle,
       color: 'emerald',
@@ -89,6 +147,36 @@ const Dashboard = () => {
       icon: AlertCircle,
       color: 'red',
       format: 'currency'
+    }
+  ];
+
+  // Estadísticas de progreso con barras
+  const progressStats = [
+    {
+      title: 'Comisiones Pagadas',
+      value: updatedStats.totalCommissionsPaid,
+      total: updatedStats.totalCommissionsPaid, // Las comisiones siempre se pagan al 100%
+      percentage: 100,
+      color: 'yellow',
+      icon: '💳'
+    },
+    {
+      title: 'Intereses + IVA Pagados',
+      value: updatedStats.totalInterestWithIVAPaid,
+      total: updatedStats.totalToPay - updatedStats.totalAmount - updatedStats.totalCommissionsPaid,
+      percentage: updatedStats.totalToPay > updatedStats.totalAmount + updatedStats.totalCommissionsPaid 
+        ? (updatedStats.totalInterestWithIVAPaid / (updatedStats.totalToPay - updatedStats.totalAmount - updatedStats.totalCommissionsPaid)) * 100 
+        : 0,
+      color: 'orange',
+      icon: '📈'
+    },
+    {
+      title: 'Capital Pagado',
+      value: updatedStats.totalPaid,
+      total: updatedStats.totalAmount,
+      percentage: updatedStats.totalAmount > 0 ? (updatedStats.totalPaid / updatedStats.totalAmount) * 100 : 0,
+      color: 'blue',
+      icon: '💰'
     }
   ];
 
@@ -109,13 +197,64 @@ const Dashboard = () => {
       green: 'bg-green-50 text-green-700 border-green-200',
       emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
       red: 'bg-red-50 text-red-700 border-red-200',
-      yellow: 'bg-yellow-50 text-yellow-700 border-yellow-200'
+      yellow: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+      orange: 'bg-orange-50 text-orange-700 border-orange-200'
+    };
+    return colors[color] || colors.blue;
+  };
+
+  const getProgressBarColor = (color) => {
+    const colors = {
+      blue: 'bg-blue-500',
+      green: 'bg-green-500',
+      emerald: 'bg-emerald-500',
+      red: 'bg-red-500',
+      yellow: 'bg-yellow-500',
+      orange: 'bg-orange-500'
     };
     return colors[color] || colors.blue;
   };
 
   return (
     <div className="space-y-6">
+      {/* Banner de Migración */}
+      {!useAPI && hasLocalStorageData && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-start space-x-3">
+            <div className="flex-shrink-0">
+              <Database className="h-6 w-6 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-blue-800 mb-1">
+                🚀 ¡Migra a la Base de Datos!
+              </h3>
+              <p className="text-blue-700 text-sm mb-3">
+                Detectamos que tienes préstamos almacenados localmente. Migra tus datos a nuestra base de datos SQLite 
+                para mayor seguridad, mejor rendimiento y sincronización entre dispositivos.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  to="/migracion"
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Migrar Datos
+                </Link>
+                <button
+                  onClick={() => setHasLocalStorageData(false)}
+                  className="inline-flex items-center px-4 py-2 bg-white text-blue-700 text-sm font-medium rounded-md border border-blue-300 hover:bg-blue-50 transition-colors"
+                >
+                  Recordar más tarde
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Panel de Migración Mejorado */}
+      <MigrationPanel />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
         <div>
@@ -156,6 +295,54 @@ const Dashboard = () => {
           );
         })}
       </div>
+
+      {/* Barras de progreso detalladas */}
+      {updatedStats.totalLoans > 0 && (
+        <div className="card">
+          <div className="mb-6">
+            <h3 className="text-lg font-medium text-secondary-900 mb-2">
+              📊 Progreso Detallado de Pagos
+            </h3>
+            <p className="text-sm text-secondary-600">
+              Desglose de todos los componentes pagados hasta el momento
+            </p>
+          </div>
+          
+          <div className="space-y-6">
+            {progressStats.map((stat) => (
+              <div key={stat.title} className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg">{stat.icon}</span>
+                    <span className="text-sm font-medium text-secondary-700">
+                      {stat.title}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-bold text-secondary-900">
+                      {formatCurrency(stat.value)}
+                    </span>
+                    <span className="text-xs text-secondary-500 ml-1">
+                      / {formatCurrency(stat.total)}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="flex-1 bg-gray-200 rounded-full h-3">
+                    <div 
+                      className={`h-3 rounded-full transition-all duration-500 ${getProgressBarColor(stat.color)}`}
+                      style={{ width: `${Math.min(stat.percentage, 100)}%` }}
+                    ></div>
+                  </div>
+                  <span className="text-xs font-medium text-secondary-600 min-w-[40px]">
+                    {stat.percentage.toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Barra de progreso general */}
       {updatedStats.totalLoans > 0 && (

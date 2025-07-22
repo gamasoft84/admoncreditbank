@@ -7,7 +7,8 @@ import {
   Settings,
   Menu,
   X,
-  TrendingUp
+  TrendingUp,
+  Database
 } from 'lucide-react';
 
 const Navigation = () => {
@@ -32,6 +33,12 @@ const Navigation = () => {
       href: '/prestamos',
       icon: CreditCard,
       description: 'Gestionar préstamos'
+    },
+    {
+      name: 'Migración',
+      href: '/migracion',
+      icon: Database,
+      description: 'Migrar datos'
     },
     {
       name: 'Configuración',

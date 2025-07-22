@@ -9,6 +9,17 @@ const AmortizationTable = ({ amortization, loanData }) => {
     );
   }
 
+  // Función para determinar si una fecha está en el mes actual
+  const isCurrentMonth = (paymentDate) => {
+    if (!paymentDate) return false;
+    
+    const today = new Date();
+    const payment = new Date(paymentDate);
+    
+    return today.getFullYear() === payment.getFullYear() && 
+           today.getMonth() === payment.getMonth();
+  };
+
   const totals = amortization.reduce((acc, payment) => ({
     totalPayment: acc.totalPayment + payment.payment,
     totalInterest: acc.totalInterest + payment.interest,
@@ -82,63 +93,86 @@ const AmortizationTable = ({ amortization, loanData }) => {
         
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
                   Mes
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
                   Fecha
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-bold text-gray-800 uppercase tracking-wider">
                   Pago Total
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-bold text-gray-800 uppercase tracking-wider">
                   Capital
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-bold text-gray-800 uppercase tracking-wider">
                   Interés
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-bold text-gray-800 uppercase tracking-wider">
                   IVA
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-bold text-gray-800 uppercase tracking-wider">
                   Saldo
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {amortization.map((payment, index) => (
-                <tr key={index} className={index === 0 ? 'bg-yellow-50' : index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {index === 0 ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                        Inicial
-                      </span>
-                    ) : (
-                      index
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {formatDate(payment.date || payment.paymentDate)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900">
-                    {formatCurrency(payment.payment)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-blue-600">
-                    {formatCurrency(payment.principal)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-orange-600">
-                    {formatCurrency(payment.interest)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-red-600">
-                    {formatCurrency(payment.vatOnInterest || payment.interestTax || 0)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-purple-600">
-                    {formatCurrency(payment.balance)}
-                  </td>
-                </tr>
-              ))}
+              {amortization.map((payment, index) => {
+                const isCurrentMonthRow = isCurrentMonth(payment.date || payment.paymentDate);
+                let rowClasses = '';
+                
+                if (index === 0) {
+                  // Mes inicial (comisiones)
+                  rowClasses = 'bg-yellow-50';
+                } else if (isCurrentMonthRow) {
+                  // Mes actual - resaltado especial
+                  rowClasses = 'bg-blue-50 border-l-4 border-blue-400';
+                } else if (index % 2 === 0) {
+                  // Filas pares
+                  rowClasses = 'bg-gray-50';
+                } else {
+                  // Filas impares
+                  rowClasses = 'bg-white';
+                }
+
+                return (
+                  <tr key={index} className={rowClasses}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {index === 0 ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                          Inicial
+                        </span>
+                      ) : isCurrentMonthRow ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                          {index} ▶
+                        </span>
+                      ) : (
+                        index
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {formatDate(payment.date || payment.paymentDate)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900">
+                      {formatCurrency(payment.payment)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-blue-600">
+                      {formatCurrency(payment.principal)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-orange-600">
+                      {formatCurrency(payment.interest)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-red-600">
+                      {formatCurrency(payment.vatOnInterest || payment.interestTax || 0)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-purple-600">
+                      {formatCurrency(payment.balance)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

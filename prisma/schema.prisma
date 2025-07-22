@@ -1,0 +1,62 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Loan {
+  id                    BigInt    @id
+  name                  String
+  principal             Float
+  amount                Float
+  annualRate            Float
+  interestRate          Float?    // Compatibilidad con datos existentes
+  months                Int
+  termMonths            Int?      // Compatibilidad con datos existentes
+  startDate             String
+  endDate               String
+  monthlyPayment        Float
+  monthlyPaymentWithTax Float?
+  commissionAmount      Float
+  commissionTax         Float
+  initialPayment        Float
+  totalInterest         Float
+  totalInterestTax      Float
+  totalPayment          Float
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  // Relación con el cronograma de pagos
+  schedule              PaymentSchedule[]
+  
+  @@map("loans")
+}
+
+model PaymentSchedule {
+  id               Int      @id @default(autoincrement())
+  loanId           BigInt
+  month            Int
+  paymentDate      String
+  date             String?  // Compatibilidad con datos existentes
+  payment          Float
+  principal        Float
+  interest         Float
+  interestTax      Float
+  vatOnInterest    Float?   // Compatibilidad con datos existentes
+  commission       Float    @default(0)
+  commissionTax    Float    @default(0)
+  balance          Float
+  isInitialPayment Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  
+  // Relación con el préstamo
+  loan             Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  
+  @@map("payment_schedule")
+}
