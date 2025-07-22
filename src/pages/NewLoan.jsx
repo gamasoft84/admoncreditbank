@@ -8,6 +8,8 @@ import {
   formatDate 
 } from '../utils/financial';
 import AmortizationTable from '../components/AmortizationTable';
+import ClientSelector from '../components/ClientSelector';
+import ClientModal from '../components/ClientModal';
 import {
   Calculator,
   Save,
@@ -31,6 +33,10 @@ const NewLoan = () => {
     termMonths: '36',
     startDate: new Date().toISOString().split('T')[0]
   });
+
+  // Estado del cliente
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [showClientModal, setShowClientModal] = useState(false);
 
   // Estado de la calculadora
   const [calculation, setCalculation] = useState(null);
@@ -105,7 +111,13 @@ const NewLoan = () => {
   const handleSave = () => {
     if (!calculation) return;
 
-    const result = addLoan(calculation);
+    // Agregar clientId al cálculo si hay un cliente seleccionado
+    const loanData = {
+      ...calculation,
+      clientId: selectedClient?.id || null
+    };
+
+    const result = addLoan(loanData);
     if (result.success) {
       navigate('/prestamos');
     }
@@ -120,9 +132,26 @@ const NewLoan = () => {
       termMonths: '36',
       startDate: new Date().toISOString().split('T')[0]
     });
+    setSelectedClient(null);
     setCalculation(null);
     setErrors({});
     setShowResults(false);
+  };
+
+  // Manejar selección de cliente
+  const handleClientSelect = (client) => {
+    setSelectedClient(client);
+  };
+
+  // Manejar creación de cliente
+  const handleCreateClient = () => {
+    setShowClientModal(true);
+  };
+
+  // Manejar cliente creado
+  const handleClientCreated = (newClient) => {
+    setSelectedClient(newClient);
+    setShowClientModal(false);
   };
 
   return (
@@ -161,6 +190,13 @@ const NewLoan = () => {
                 <p className="text-red-600 text-sm mt-1">{errors.name}</p>
               )}
             </div>
+
+            {/* Selector de Cliente */}
+            <ClientSelector
+              selectedClient={selectedClient}
+              onClientSelect={handleClientSelect}
+              onCreateClient={handleCreateClient}
+            />
 
             {/* Monto */}
             <div>
@@ -391,6 +427,13 @@ const NewLoan = () => {
           />
         </div>
       )}
+
+      {/* Modal de Cliente */}
+      <ClientModal
+        isOpen={showClientModal}
+        onClose={() => setShowClientModal(false)}
+        onClientCreated={handleClientCreated}
+      />
     </div>
   );
 };

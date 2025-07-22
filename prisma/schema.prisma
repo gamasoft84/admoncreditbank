@@ -10,8 +10,25 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Client {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String?
+  phone     String?
+  rfc       String?  // RFC mexicano
+  curp      String?  // CURP mexicano
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relación con préstamos
+  loans     Loan[]
+  
+  @@map("clients")
+}
+
 model Loan {
-  id                    BigInt    @id
+  id                    Int       @id @default(autoincrement())
   name                  String
   principal             Float
   amount                Float
@@ -32,6 +49,10 @@ model Loan {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   
+  // Relación con cliente
+  clientId              Int?
+  client                Client?   @relation(fields: [clientId], references: [id])
+  
   // Relación con el cronograma de pagos
   schedule              PaymentSchedule[]
   
@@ -40,7 +61,7 @@ model Loan {
 
 model PaymentSchedule {
   id               Int      @id @default(autoincrement())
-  loanId           BigInt
+  loanId           Int
   month            Int
   paymentDate      String
   date             String?  // Compatibilidad con datos existentes

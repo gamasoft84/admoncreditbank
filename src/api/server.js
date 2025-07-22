@@ -10,6 +10,15 @@ import {
   getStats,
   migrateLoan
 } from './loanService.js';
+import {
+  getAllClients,
+  getClientById,
+  createClient,
+  updateClient,
+  deleteClient,
+  searchClients,
+  getClientStats
+} from './clientService.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -25,7 +34,8 @@ connectDB();
 
 // GET /api/loans - Obtener todos los préstamos
 app.get('/api/loans', async (req, res) => {
-  const result = await getAllLoans();
+  const { clientId } = req.query;
+  const result = await getAllLoans(clientId);
   if (result.success) {
     res.json(result.data);
   } else {
@@ -98,6 +108,83 @@ app.get('/api/stats', async (req, res) => {
     res.json(result.data);
   } else {
     res.status(500).json({ error: result.error });
+  }
+});
+
+// === ENDPOINTS DE CLIENTES ===
+
+// GET /api/clients - Obtener todos los clientes
+app.get('/api/clients', async (req, res) => {
+  const result = await getAllClients();
+  if (result.success) {
+    res.json(result.data);
+  } else {
+    res.status(400).json({ error: result.error });
+  }
+});
+
+// GET /api/clients/search - Buscar clientes por nombre
+app.get('/api/clients/search', async (req, res) => {
+  const { q } = req.query;
+  if (!q) {
+    return res.status(400).json({ error: 'Parámetro de búsqueda requerido' });
+  }
+  
+  const result = await searchClients(q);
+  if (result.success) {
+    res.json(result.data);
+  } else {
+    res.status(400).json({ error: result.error });
+  }
+});
+
+// GET /api/clients/stats - Estadísticas de clientes
+app.get('/api/clients/stats', async (req, res) => {
+  const result = await getClientStats();
+  if (result.success) {
+    res.json(result.data);
+  } else {
+    res.status(400).json({ error: result.error });
+  }
+});
+
+// GET /api/clients/:id - Obtener cliente por ID
+app.get('/api/clients/:id', async (req, res) => {
+  const result = await getClientById(req.params.id);
+  if (result.success) {
+    res.json(result.data);
+  } else {
+    res.status(404).json({ error: result.error });
+  }
+});
+
+// POST /api/clients - Crear nuevo cliente
+app.post('/api/clients', async (req, res) => {
+  const result = await createClient(req.body);
+  if (result.success) {
+    res.status(201).json(result.data);
+  } else {
+    res.status(400).json({ error: result.error });
+  }
+});
+
+// PUT /api/clients/:id - Actualizar cliente
+app.put('/api/clients/:id', async (req, res) => {
+  const result = await updateClient(req.params.id, req.body);
+  if (result.success) {
+    res.json(result.data);
+  } else {
+    res.status(400).json({ error: result.error });
+  }
+});
+
+// DELETE /api/clients/:id - Eliminar cliente
+app.delete('/api/clients/:id', async (req, res) => {
+  const result = await deleteClient(req.params.id);
+  if (result.success) {
+    res.json({ message: result.message });
+  } else {
+    res.status(400).json({ error: result.error });
   }
 });
 

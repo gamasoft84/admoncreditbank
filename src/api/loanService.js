@@ -8,10 +8,21 @@ const serializeBigInt = (obj) => {
 };
 
 // Obtener todos los préstamos
-export const getAllLoans = async () => {
+export const getAllLoans = async (clientId = null) => {
   try {
+    const whereClause = clientId ? { clientId: parseInt(clientId) } : {};
+    
     const loans = await prisma.loan.findMany({
+      where: whereClause,
       include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true
+          }
+        },
         schedule: {
           orderBy: { month: 'asc' }
         }
@@ -34,6 +45,16 @@ export const getLoanById = async (id) => {
     const loan = await prisma.loan.findUnique({
       where: { id: loanId },
       include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            rfc: true,
+            address: true
+          }
+        },
         schedule: {
           orderBy: { month: 'asc' }
         }
@@ -54,7 +75,7 @@ export const getLoanById = async (id) => {
 // Crear un nuevo préstamo (con manejo de duplicados)
 export const createLoan = async (loanData) => {
   try {
-    const { schedule, ...loanInfo } = loanData;
+    const { schedule, id: loanId, ...loanInfo } = loanData;
     
     // Mapear campos para compatibilidad con localStorage
     const mappedLoanInfo = {
@@ -66,21 +87,25 @@ export const createLoan = async (loanData) => {
       interestRate: loanInfo.interestRate || loanInfo.annualRate,
       termMonths: loanInfo.termMonths || loanInfo.months,
       monthlyPaymentWithTax: loanInfo.monthlyPaymentWithTax || loanInfo.monthlyPayment,
+      // Agregar clientId si se proporciona
+      clientId: loanInfo.clientId ? parseInt(loanInfo.clientId) : null,
     };
 
     // Log para debugging
     console.log('🔍 Datos de entrada:', JSON.stringify(loanInfo, null, 2));
     console.log('🔍 Datos mapeados:', JSON.stringify(mappedLoanInfo, null, 2));
 
-    // Verificar si ya existe un préstamo con este ID
-    const existingLoan = await prisma.loan.findUnique({
-      where: { id: loanInfo.id }
-    });
+    // Verificar si ya existe un préstamo con este ID (solo si el ID está presente)
+    if (loanId) {
+      const existingLoan = await prisma.loan.findUnique({
+        where: { id: loanId }
+      });
 
-    if (existingLoan) {
-      console.log('⚠️ Préstamo ya existe, actualizando...', loanInfo.id);
-      // Si ya existe, actualizarlo en lugar de crear uno nuevo
-      return await updateLoan(loanInfo.id, loanData);
+      if (existingLoan) {
+        console.log('⚠️ Préstamo ya existe, actualizando...', loanId);
+        // Si ya existe, actualizarlo en lugar de crear uno nuevo
+        return await updateLoan(loanId, loanData);
+      }
     }
     
     const newLoan = await prisma.loan.create({

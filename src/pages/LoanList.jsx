@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useLoan } from '../context/LoanContext';
 import { formatCurrency, formatDate, calculateCurrentBalance, calculateLoanProgress } from '../utils/financial';
@@ -11,14 +11,35 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  PlusCircle
+  PlusCircle,
+  User,
+  X
 } from 'lucide-react';
 
 const LoanList = () => {
   const { loans, deleteLoan } = useLoan();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [clientFilter, setClientFilter] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
+  const [clients, setClients] = useState([]);
+
+  // Cargar clientes para el filtro
+  useEffect(() => {
+    fetchClients();
+  }, []);
+
+  const fetchClients = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/clients');
+      if (response.ok) {
+        const data = await response.json();
+        setClients(data);
+      }
+    } catch (error) {
+      console.error('Error cargando clientes:', error);
+    }
+  };
 
   // Procesar préstamos con datos calculados
   const processedLoans = useMemo(() => {
@@ -49,13 +70,23 @@ const LoanList = () => {
     // Filtrar por término de búsqueda
     if (searchTerm) {
       filtered = filtered.filter(loan =>
-        loan.name.toLowerCase().includes(searchTerm.toLowerCase())
+        loan.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (loan.client?.name && loan.client.name.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
 
     // Filtrar por estado
     if (statusFilter !== 'all') {
       filtered = filtered.filter(loan => loan.status === statusFilter);
+    }
+
+    // Filtrar por cliente
+    if (clientFilter !== 'all') {
+      if (clientFilter === 'no-client') {
+        filtered = filtered.filter(loan => !loan.clientId);
+      } else {
+        filtered = filtered.filter(loan => loan.clientId?.toString() === clientFilter);
+      }
     }
 
     // Ordenar
@@ -77,7 +108,7 @@ const LoanList = () => {
     }
 
     return filtered;
-  }, [processedLoans, searchTerm, statusFilter, sortBy]);
+  }, [processedLoans, searchTerm, statusFilter, clientFilter, sortBy]);
 
   // Manejar eliminación de préstamo
   const handleDelete = (loan) => {
@@ -159,6 +190,24 @@ const LoanList = () => {
             </select>
           </div>
 
+          {/* Filtro por cliente */}
+          <div className="relative">
+            <User className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400" />
+            <select
+              value={clientFilter}
+              onChange={(e) => setClientFilter(e.target.value)}
+              className="input pl-10 appearance-none"
+            >
+              <option value="all">Todos los clientes</option>
+              <option value="no-client">Sin cliente asignado</option>
+              {clients.map(client => (
+                <option key={client.id} value={client.id.toString()}>
+                  {client.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Ordenar por */}
           <select
             value={sortBy}
@@ -209,6 +258,8 @@ const LoanList = () => {
                 onClick={() => {
                   setSearchTerm('');
                   setStatusFilter('all');
+                  setClientFilter('all');
+                  setSortBy('recent');
                 }}
                 className="btn btn-secondary"
               >
@@ -236,6 +287,22 @@ const LoanList = () => {
                         <p className="text-sm text-secondary-600">
                           Creado: {formatDate(loan.createdAt)}
                         </p>
+                        {loan.client && (
+                          <div className="flex items-center mt-1">
+                            <User className="h-3 w-3 text-blue-500 mr-1" />
+                            <span className="text-sm text-blue-600 font-medium">
+                              {loan.client.name}
+                            </span>
+                          </div>
+                        )}
+                        {!loan.client && (
+                          <div className="flex items-center mt-1">
+                            <User className="h-3 w-3 text-gray-400 mr-1" />
+                            <span className="text-sm text-gray-500">
+                              Sin cliente asignado
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <span className={`px-3 py-1 text-xs font-medium rounded-full flex items-center ${statusInfo.className}`}>
                         <StatusIcon className="h-3 w-3 mr-1" />
