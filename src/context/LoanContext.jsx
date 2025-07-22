@@ -205,7 +205,14 @@ export const LoanProvider = ({ children }) => {
             dispatch({ type: LOAN_ACTIONS.ADD_LOAN, payload: apiResult.data });
             dispatch({ type: LOAN_ACTIONS.SET_LOADING, payload: false });
             return { success: true };
+          } else if (apiResult && apiResult.data) {
+            console.warn('El backend devolvió error pero el préstamo fue guardado:', apiResult.error);
+            dispatch({ type: LOAN_ACTIONS.ADD_LOAN, payload: apiResult.data });
+            dispatch({ type: LOAN_ACTIONS.SET_LOADING, payload: false });
+            // No establecer error, solo advertencia
+            return { success: true, warning: apiResult.error };
           } else {
+            // Solo mostrar error si no se guardó nada
             throw new Error(apiResult.error || 'Error al guardar el préstamo');
           }
         } else {
