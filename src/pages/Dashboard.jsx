@@ -18,6 +18,105 @@ import {
 
 const Dashboard = () => {
   const { loans, stats, useAPI } = useLoan();
+
+  // Filtros de búsqueda
+  const [search, setSearch] = React.useState("");
+  const [status, setStatus] = React.useState("");
+  const [client, setClient] = React.useState("");
+  const [order, setOrder] = React.useState("recientes");
+
+  // Lista única de clientes usando l.client.id y l.client.name
+  const clientList = React.useMemo(() => {
+    const clientMap = new Map();
+    loans.forEach(l => {
+      const clientId = l.client && l.client.id;
+      const clientName = l.client && l.client.name;
+      if (clientId && clientName && !clientMap.has(clientId)) {
+        clientMap.set(clientId, clientName);
+      }
+    });
+    return Array.from(clientMap.entries()).map(([id, name]) => ({ id, name }));
+  }, [loans]);
+
+  // Filtrar préstamos según los filtros
+  const filteredLoans = React.useMemo(() => {
+    let filtered = [...loans];
+    if (search) {
+      filtered = filtered.filter(l =>
+        (l.name && l.name.toLowerCase().includes(search.toLowerCase())) ||
+        (l.client && l.client.name && l.client.name.toLowerCase().includes(search.toLowerCase()))
+      );
+    }
+    if (status) {
+      filtered = filtered.filter(l => {
+        const progress = calculateLoanProgress(l).progressPercentage;
+        if (status === "pendiente") return progress === 0;
+        if (status === "proceso") return progress > 0 && progress < 100;
+        if (status === "liquidado") return progress === 100;
+        return true;
+      });
+    }
+    if (client) {
+      filtered = filtered.filter(l => l.client && String(l.client.id) === String(client));
+    }
+    // Ordenamiento
+    if (order === "recientes") {
+      filtered = filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    } else if (order === "antiguos") {
+      filtered = filtered.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    } else if (order === "mayor") {
+      filtered = filtered.sort((a, b) => (b.principal || b.amount) - (a.principal || a.amount));
+    } else if (order === "menor") {
+      filtered = filtered.sort((a, b) => (a.principal || a.amount) - (b.principal || b.amount));
+    }
+    return filtered;
+  }, [loans, search, status, client, order]);
+
+  // Recalcular estadísticas con préstamos filtrados
+  const filteredStats = React.useMemo(() => {
+    if (!filteredLoans || filteredLoans.length === 0) return stats;
+    // Copiar lógica de updatedStats pero usando filteredLoans
+    const totalAmount = filteredLoans.reduce((sum, loan) => sum + (loan.principal || loan.amount), 0);
+    const totalToPay = filteredLoans.reduce((sum, loan) => sum + loan.totalPayment, 0);
+    const loanProgresses = filteredLoans.map(loan => calculateLoanProgress(loan));
+    const totalPending = loanProgresses.reduce((sum, progress) => sum + progress.remainingBalance, 0);
+    const totalPaid = filteredLoans.reduce((sum, loan) => {
+      const progress = calculateLoanProgress(loan);
+      return sum + progress.capitalPaid;
+    }, 0);
+    const totalCommissionsPaid = filteredLoans.reduce((sum, loan) => sum + (loan.initialPayment || 0), 0);
+    const totalInterestWithIVAPaid = filteredLoans.reduce((sum, loan) => {
+      const progress = calculateLoanProgress(loan);
+      const monthlyRate = ((loan.annualRate || loan.interestRate) / 100) / 12;
+      const principal = loan.principal || loan.amount;
+      let totalInterestPaid = 0;
+      let totalIVAPaid = 0;
+      let currentBalance = principal;
+      for (let month = 1; month <= progress.paymentsCompleted; month++) {
+        const interestPayment = currentBalance * monthlyRate;
+        const ivaPayment = interestPayment * 0.16;
+        const principalPayment = (loan.monthlyPayment || 0) - interestPayment;
+        totalInterestPaid += interestPayment;
+        totalIVAPaid += ivaPayment;
+        currentBalance = Math.max(0, currentBalance - principalPayment);
+        if (currentBalance === 0) break;
+      }
+      return sum + totalInterestPaid + totalIVAPaid;
+    }, 0);
+    const averageProgress = loanProgresses.length > 0
+      ? loanProgresses.reduce((sum, progress) => sum + progress.progressPercentage, 0) / loanProgresses.length
+      : 0;
+    return {
+      totalLoans: filteredLoans.length,
+      totalAmount,
+      totalToPay,
+      totalPaid,
+      totalPending,
+      totalCommissionsPaid,
+      totalInterestWithIVAPaid,
+      averageProgress
+    };
+  }, [filteredLoans, stats]);
   
   // Verificar si hay datos en localStorage para migrar
   const [hasLocalStorageData, setHasLocalStorageData] = React.useState(false);
@@ -103,7 +202,7 @@ const Dashboard = () => {
 
   // Obtener préstamos recientes
   const recentLoans = React.useMemo(() => {
-    return loans
+    return filteredLoans
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 5)
       .map(loan => {
@@ -116,34 +215,34 @@ const Dashboard = () => {
           totalPayments: loan.months || loan.termMonths
         };
       });
-  }, [loans]);
+  }, [filteredLoans]);
 
   // Estadísticas de la tarjetas
   const statCards = [
     {
       title: 'Total Préstamos',
-      value: updatedStats.totalLoans,
+      value: filteredStats.totalLoans,
       icon: CreditCard,
       color: 'blue',
       format: 'number'
     },
     {
       title: 'Monto Total Prestado',
-      value: updatedStats.totalAmount,
+      value: filteredStats.totalAmount,
       icon: DollarSign,
       color: 'green',
       format: 'currency'
     },
     {
       title: 'Capital Pagado Total',
-      value: updatedStats.totalPaid,
+      value: filteredStats.totalPaid,
       icon: CheckCircle,
       color: 'emerald',
       format: 'currency'
     },
     {
       title: 'Saldo Pendiente',
-      value: updatedStats.totalPending,
+      value: filteredStats.totalPending,
       icon: AlertCircle,
       color: 'red',
       format: 'currency'
@@ -154,27 +253,27 @@ const Dashboard = () => {
   const progressStats = [
     {
       title: 'Comisiones Pagadas',
-      value: updatedStats.totalCommissionsPaid,
-      total: updatedStats.totalCommissionsPaid, // Las comisiones siempre se pagan al 100%
+      value: filteredStats.totalCommissionsPaid,
+      total: filteredStats.totalCommissionsPaid, // Las comisiones siempre se pagan al 100%
       percentage: 100,
       color: 'yellow',
       icon: '💳'
     },
     {
       title: 'Intereses + IVA Pagados',
-      value: updatedStats.totalInterestWithIVAPaid,
-      total: updatedStats.totalToPay - updatedStats.totalAmount - updatedStats.totalCommissionsPaid,
-      percentage: updatedStats.totalToPay > updatedStats.totalAmount + updatedStats.totalCommissionsPaid 
-        ? (updatedStats.totalInterestWithIVAPaid / (updatedStats.totalToPay - updatedStats.totalAmount - updatedStats.totalCommissionsPaid)) * 100 
+      value: filteredStats.totalInterestWithIVAPaid,
+      total: filteredStats.totalToPay - filteredStats.totalAmount - filteredStats.totalCommissionsPaid,
+      percentage: filteredStats.totalToPay > filteredStats.totalAmount + filteredStats.totalCommissionsPaid 
+        ? (filteredStats.totalInterestWithIVAPaid / (filteredStats.totalToPay - filteredStats.totalAmount - filteredStats.totalCommissionsPaid)) * 100 
         : 0,
       color: 'orange',
       icon: '📈'
     },
     {
       title: 'Capital Pagado',
-      value: updatedStats.totalPaid,
-      total: updatedStats.totalAmount,
-      percentage: updatedStats.totalAmount > 0 ? (updatedStats.totalPaid / updatedStats.totalAmount) * 100 : 0,
+      value: filteredStats.totalPaid,
+      total: filteredStats.totalAmount,
+      percentage: filteredStats.totalAmount > 0 ? (filteredStats.totalPaid / filteredStats.totalAmount) * 100 : 0,
       color: 'blue',
       icon: '💰'
     }
@@ -217,9 +316,90 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
+      {/* Barra de filtros */}
+      <div className="card flex flex-col md:flex-row gap-4 items-center justify-between mb-4">
+        <input
+          type="text"
+          className="input input-bordered w-full md:w-1/4"
+          placeholder="Buscar por nombre o cliente..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <select
+          className="input input-bordered w-full md:w-1/6"
+          value={status}
+          onChange={e => setStatus(e.target.value)}
+        >
+          <option value="">Todos los estados</option>
+          <option value="pendiente">Pendiente</option>
+          <option value="proceso">En proceso</option>
+          <option value="liquidado">Liquidado</option>
+        </select>
+        <select
+          className="input input-bordered w-full md:w-1/6"
+          value={client}
+          onChange={e => setClient(e.target.value)}
+        >
+          <option value="">Todos los clientes</option>
+          {
+            clientList.length === 0 ? (
+              <option disabled value="">No hay clientes registrados</option>
+            ) : (
+              clientList.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))
+            )
+          }
+        </select>
+        <select
+          className="input input-bordered w-full md:w-1/6"
+          value={order}
+          onChange={e => setOrder(e.target.value)}
+        >
+          <option value="recientes">Más recientes</option>
+          <option value="antiguos">Más antiguos</option>
+          <option value="mayor">Monto mayor</option>
+          <option value="menor">Monto menor</option>
+        </select>
+      </div>
       {/* Banner de Migración */}
-      {/* Componente de migración eliminado */}
-      
+      {!useAPI && hasLocalStorageData && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-start space-x-3">
+            <div className="flex-shrink-0">
+              <Database className="h-6 w-6 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-blue-800 mb-1">
+                🚀 ¡Migra a la Base de Datos!
+              </h3>
+              <p className="text-blue-700 text-sm mb-3">
+                Detectamos que tienes préstamos almacenados localmente. Migra tus datos a nuestra base de datos SQLite 
+                para mayor seguridad, mejor rendimiento y sincronización entre dispositivos.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  to="/migracion"
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Migrar Datos
+                </Link>
+                <button
+                  onClick={() => setHasLocalStorageData(false)}
+                  className="inline-flex items-center px-4 py-2 bg-white text-blue-700 text-sm font-medium rounded-md border border-blue-300 hover:bg-blue-50 transition-colors"
+                >
+                  Recordar más tarde
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Panel de Migración Mejorado */}
+      {/* Panel de migración eliminado */}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
         <div>
@@ -236,7 +416,7 @@ const Dashboard = () => {
           Nuevo Préstamo
         </Link>
       </div>
-      
+
       {/* Estadísticas principales */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((stat) => {
@@ -262,7 +442,7 @@ const Dashboard = () => {
       </div>
 
       {/* Barras de progreso detalladas */}
-      {updatedStats.totalLoans > 0 && (
+      {filteredStats.totalLoans > 0 && (
         <div className="card">
           <div className="mb-6">
             <h3 className="text-lg font-medium text-secondary-900 mb-2">
@@ -310,7 +490,7 @@ const Dashboard = () => {
       )}
 
       {/* Barra de progreso general */}
-      {updatedStats.totalLoans > 0 && (
+      {filteredStats.totalLoans > 0 && (
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -318,31 +498,31 @@ const Dashboard = () => {
                 Progreso General de Pagos
               </h3>
               <p className="text-sm text-secondary-600">
-                {updatedStats.averageProgress.toFixed(1)}% completado del total
+                {filteredStats.averageProgress.toFixed(1)}% completado del total
               </p>
             </div>
             <div className="text-right">
               <p className="text-sm text-secondary-600">Total a Pagar</p>
               <p className="text-lg font-semibold text-secondary-900">
-                {formatCurrency(updatedStats.totalToPay)}
+                {formatCurrency(filteredStats.totalToPay)}
               </p>
             </div>
           </div>
           <div className="w-full bg-secondary-200 rounded-full h-3">
             <div
               className="bg-primary-600 h-3 rounded-full transition-all duration-300"
-              style={{ width: `${Math.min(updatedStats.averageProgress, 100)}%` }}
+              style={{ width: `${Math.min(filteredStats.averageProgress, 100)}%` }}
             ></div>
           </div>
           <div className="flex justify-between text-sm text-secondary-600 mt-2">
-            <span>Pagado: {formatCurrency(updatedStats.totalPaid)}</span>
-            <span>Pendiente: {formatCurrency(updatedStats.totalPending)}</span>
+            <span>Pagado: {formatCurrency(filteredStats.totalPaid)}</span>
+            <span>Pendiente: {formatCurrency(filteredStats.totalPending)}</span>
           </div>
         </div>
       )}
 
       {/* Estado cuando no hay préstamos */}
-      {updatedStats.totalLoans === 0 && (
+      {filteredStats.totalLoans === 0 && (
         <div className="card text-center py-12">
           <TrendingUp className="h-16 w-16 text-secondary-400 mx-auto mb-4" />
           <h3 className="text-xl font-medium text-secondary-900 mb-2">
