@@ -1,3 +1,6 @@
+# Execute
+npm run dev:full
+
 # 🏦 PréstamoBnk - Sistema de Administración de Créditos
 
 Un sistema moderno y completo para calcular, gestionar y monitorear préstamos y tablas de amortización, diseñado específicamente para el mercado mexicano.
