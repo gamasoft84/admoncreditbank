@@ -218,43 +218,8 @@ const Dashboard = () => {
   return (
     <div className="space-y-6">
       {/* Banner de Migración */}
-      {!useAPI && hasLocalStorageData && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-start space-x-3">
-            <div className="flex-shrink-0">
-              <Database className="h-6 w-6 text-blue-600" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-blue-800 mb-1">
-                🚀 ¡Migra a la Base de Datos!
-              </h3>
-              <p className="text-blue-700 text-sm mb-3">
-                Detectamos que tienes préstamos almacenados localmente. Migra tus datos a nuestra base de datos SQLite 
-                para mayor seguridad, mejor rendimiento y sincronización entre dispositivos.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <Link
-                  to="/migracion"
-                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Migrar Datos
-                </Link>
-                <button
-                  onClick={() => setHasLocalStorageData(false)}
-                  className="inline-flex items-center px-4 py-2 bg-white text-blue-700 text-sm font-medium rounded-md border border-blue-300 hover:bg-blue-50 transition-colors"
-                >
-                  Recordar más tarde
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Panel de Migración Mejorado */}
-      {/* Panel de migración eliminado */}
-
+      {/* Componente de migración eliminado */}
+      
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
         <div>
@@ -271,7 +236,7 @@ const Dashboard = () => {
           Nuevo Préstamo
         </Link>
       </div>
-
+      
       {/* Estadísticas principales */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((stat) => {
