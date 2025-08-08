@@ -167,12 +167,12 @@ export const updateLoan = async (id, loanData) => {
     
     // Eliminar el cronograma anterior
     await prisma.paymentSchedule.deleteMany({
-      where: { loanId: loanId }
+      where: { loanId: Number(loanId) }
     });
     
     // Actualizar el préstamo y crear nuevo cronograma
     const updatedLoan = await prisma.loan.update({
-      where: { id: loanId },
+      where: { id: Number(loanId) }, // <-- Forzar a Int
       data: {
         ...mappedLoanInfo,
         schedule: schedule ? {
